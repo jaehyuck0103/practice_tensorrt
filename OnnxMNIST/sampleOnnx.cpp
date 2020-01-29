@@ -9,6 +9,8 @@
 #include <NvInfer.h>
 #include <NvOnnxParser.h>
 
+#include "bufferManager.h"
+
 
 using namespace std;
 
@@ -64,7 +66,6 @@ class SampleOnnxMNIST
 public:
     SampleOnnxMNIST(const SampleParams& params)
         : mParams(params)
-        , mEngine(nullptr)
     {
     }
 
@@ -74,10 +75,8 @@ public:
 private:
     SampleParams mParams;
 
-    nvinfer1::Dims mInputDims;  //!< The dimensions of the input to the network.
-    nvinfer1::Dims mOutputDims; //!< The dimensions of the output to the network.
-
-    SampleUniquePtr<nvinfer1::ICudaEngine> mEngine; //!< The TensorRT engine used to run the network
+    shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr}; //!< The TensorRT engine used to run the network
+    unique_ptr<BufferManager> mBufManager{nullptr};
 };
 
 void SampleOnnxMNIST::build()
@@ -111,30 +110,19 @@ void SampleOnnxMNIST::build()
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
     */
 
-    mEngine = SampleUniquePtr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config));
+    mEngine = shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), InferDeleter());
 
-    // -----------
-    // Validate
-    // -----------
-    assert(network->getNbInputs() == 1);
-    mInputDims = network->getInput(0)->getDimensions();
-    assert(mInputDims.nbDims == 4);
-
-    assert(network->getNbOutputs() == 1);
-    mOutputDims = network->getOutput(0)->getDimensions();
-    assert(mOutputDims.nbDims == 2);
-
-    std::cout << network->getInput(0)->getName() << std::endl;
-    std::cout << network->getOutput(0)->getName() << std::endl;
+    mBufManager = make_unique<BufferManager>(mEngine);
 }
 
 void SampleOnnxMNIST::infer()
 {
-    // --------------
-    // Prepare Data
-    // --------------
-    const int inputH = mInputDims.d[2];
-    const int inputW = mInputDims.d[3];
+    // -------------------
+    // Prepare Input Data
+    // -------------------
+    int inputIndex = mEngine->getBindingIndex(mParams.inputTensorNames[0].c_str());
+    const int inputH = mEngine->getBindingDimensions(inputIndex).d[2];
+    const int inputW = mEngine->getBindingDimensions(inputIndex).d[3];
 
     std::vector<uint8_t> fileData(inputH * inputW);
     readPGMFile(mParams.inputFilePath, fileData.data(), inputH, inputW);
@@ -145,43 +133,30 @@ void SampleOnnxMNIST::infer()
         hostInBuffer[i] = 1.0 - float(fileData[i] / 255.0);
     }
 
-    void* deviceInBuffer{nullptr};
-    cudaMalloc(&deviceInBuffer, inputH * inputW * 4);
-    
-    void* deviceOutBuffer{nullptr};
-    cudaMalloc(&deviceOutBuffer, 10 * 4);
 
     // ----------------------
     // Copy (Host -> Device)
     // ----------------------
-    cudaMemcpy(deviceInBuffer, hostInBuffer.data(), inputH * inputW * 4, cudaMemcpyHostToDevice);
+    mBufManager->memcpy(mParams.inputTensorNames[0], true, hostInBuffer.data());
 
     // --------
     // Execute
     // --------
-    int inputIndex = mEngine->getBindingIndex(mParams.inputTensorNames[0].c_str());
-    int outputIndex = mEngine->getBindingIndex(mParams.outputTensorNames[0].c_str());
-    void* buffers[2];
-    buffers[inputIndex] = deviceInBuffer;
-    buffers[outputIndex] = deviceOutBuffer;
+    vector<void*> buffers = mBufManager->getDeviceBindings();
 
     auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
-    context->executeV2(buffers);
+    // context->executeV2(buffers);
+    context->execute(1, buffers.data());
 
     // ----------------------
     // Copy (Device -> Host)
     // ----------------------
     std::vector<float> hostOutBuffer(10);
-    cudaMemcpy(hostOutBuffer.data(), deviceOutBuffer, 10 * 4, cudaMemcpyDeviceToHost);
+    mBufManager->memcpy(mParams.outputTensorNames[0], false, hostOutBuffer.data());
+
 
     cout << "Result" << endl;
     for (const auto& elem: hostOutBuffer) { cout << elem << endl; }
-
-    // -----
-    // Free
-    // -----
-    cudaFree(deviceInBuffer);
-    cudaFree(deviceOutBuffer);
 }
 
 int main()
