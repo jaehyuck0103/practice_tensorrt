@@ -26,8 +26,6 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
 inline int volume(const nvinfer1::Dims &d) {
     return std::accumulate(d.d, d.d + d.nbDims, 1, std::multiplies<int>());
 }
@@ -44,7 +42,7 @@ inline int getTypeSize(nvinfer1::DataType t) {
     case nvinfer1::DataType::kINT8:
         return 1;
     }
-    cout << "Invalid DataType." << endl;
+    std::cout << "Invalid DataType." << std::endl;
     exit(1);
 }
 
@@ -85,24 +83,23 @@ class BufferManager {
             nvinfer1::DataType type = mEngine->getBindingDataType(i);
             int vol = volume(dims);
 
-            mDeviceBuffers.push_back(make_unique<DeviceBuffer>(vol, type));
-            mDeviceBindings.push_back(mDeviceBuffers.back()->data());
+            mDeviceBuffers.push_back(std::make_unique<DeviceBuffer>(vol, type));
         }
     }
 
-    /*
-    std::vector<void*>& getDeviceBindings()
-    {
-        return mDeviceBindings;
+    const std::vector<void *> getDeviceBindings() const {
+        std::vector<void *> deviceBindings;
+        for (const auto &elem : mDeviceBuffers) {
+            deviceBindings.push_back(elem->data());
+        }
+
+        return deviceBindings;
     }
-    */
 
-    const std::vector<void *> &getDeviceBindings() const { return mDeviceBindings; }
-
-    void memcpy(const bool hostToDevice, const string &tensorName, void *hostPtr) {
+    void memcpy(const bool hostToDevice, const std::string &tensorName, void *hostPtr) {
         int index = getBindingIndex(tensorName);
         if (hostToDevice != mEngine->bindingIsInput(index)) {
-            cout << "Memcpy: Wrong Direction." << endl;
+            std::cout << "Memcpy: Wrong Direction." << std::endl;
             exit(1);
         }
 
@@ -115,7 +112,7 @@ class BufferManager {
             hostToDevice ? cudaMemcpyHostToDevice : cudaMemcpyDeviceToHost;
 
         if (cudaMemcpy(dstPtr, srcPtr, byteSize, memcpyType) != cudaSuccess) {
-            cout << "cudaMemcpy Failed" << endl;
+            std::cout << "cudaMemcpy Failed" << std::endl;
             exit(1);
         }
     }
@@ -126,13 +123,11 @@ class BufferManager {
     int getBindingIndex(const std::string &tensorName) const {
         int index = mEngine->getBindingIndex(tensorName.c_str());
         if (index == -1) {
-            cout << "Wrong Tensor Name" << endl;
+            std::cout << "Wrong Tensor Name" << std::endl;
             exit(1);
         }
         return index;
     }
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine; //!< The pointer to the engine
     std::vector<std::unique_ptr<DeviceBuffer>> mDeviceBuffers;
-    std::vector<void *> mDeviceBindings; //!< The vector of device buffers
-                                         //!< needed for engine execution
 };

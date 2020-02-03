@@ -59,9 +59,9 @@ class SampleOnnxMNIST {
   private:
     SampleParams mParams;
 
-    shared_ptr<nvinfer1::ICudaEngine> mEngine{
-        nullptr}; //!< The TensorRT engine used to run the network
+    shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
     unique_ptr<BufferManager> mBufManager{nullptr};
+    SampleUniquePtr<nvinfer1::IExecutionContext> mContext{nullptr};
 };
 
 void SampleOnnxMNIST::build() {
@@ -86,8 +86,8 @@ void SampleOnnxMNIST::build() {
     // Build engine
     // -------------
     auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-    // builder->setMaxBatchSize(mParams.batchSize);
     /*
+    builder->setMaxBatchSize(mParams.batchSize);
     config->setMaxWorkspaceSize(1 << 30);
     if (mParams.fp16) { config->setFlag(nvinfer1::BuilderFlag::kFP16); }
     if (mParams.int8)
@@ -101,7 +101,15 @@ void SampleOnnxMNIST::build() {
     mEngine = shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config),
                                                 InferDeleter());
 
+    // -----------------------
+    // Create buffer manager
+    // -----------------------
     mBufManager = make_unique<BufferManager>(mEngine);
+
+    // ---------------
+    // Create context
+    // ---------------
+    mContext = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
 }
 
 void SampleOnnxMNIST::infer() {
@@ -129,9 +137,7 @@ void SampleOnnxMNIST::infer() {
     // Execute
     // --------
     vector<void *> buffers = mBufManager->getDeviceBindings();
-
-    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
-    context->executeV2(buffers.data());
+    mContext->executeV2(buffers.data());
 
     // ----------------------
     // Copy (Device -> Host)
