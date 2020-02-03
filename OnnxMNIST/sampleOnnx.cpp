@@ -11,8 +11,6 @@
 
 #include "bufferManager.h"
 
-using namespace std;
-
 struct SampleParams {
     bool int8{false}; //!< Allow runnning the network in Int8 mode.
     bool fp16{false}; //!< Allow running the network in FP16 mode.
@@ -38,9 +36,14 @@ struct InferDeleter {
     }
 };
 
+template <typename T> using UniquePtrTRT = std::unique_ptr<T, InferDeleter>;
+
 void readPGMFile(const std::string &fileName, uint8_t *buffer, int inH, int inW) {
     std::ifstream infile(fileName, std::ifstream::binary);
-    assert(infile.is_open() && "Attempting to read from a file that is not open.");
+    if (!infile.is_open()) {
+        std::cout << "Attempting to read from a file that is not open." << std::endl;
+        exit(1);
+    }
     std::string magic, h, w, max;
     infile >> magic >> h >> w >> max;
     infile.seekg(1, infile.cur);
@@ -48,7 +51,6 @@ void readPGMFile(const std::string &fileName, uint8_t *buffer, int inH, int inW)
 }
 
 class SampleOnnxMNIST {
-    template <typename T> using SampleUniquePtr = std::unique_ptr<T, InferDeleter>;
 
   public:
     SampleOnnxMNIST(const SampleParams &params) : mParams(params) {}
@@ -59,33 +61,33 @@ class SampleOnnxMNIST {
   private:
     SampleParams mParams;
 
-    shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
-    unique_ptr<BufferManager> mBufManager{nullptr};
-    SampleUniquePtr<nvinfer1::IExecutionContext> mContext{nullptr};
+    std::unique_ptr<BufferManager> mBufManager{nullptr};
+    std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
+    UniquePtrTRT<nvinfer1::IExecutionContext> mContext{nullptr};
 };
 
 void SampleOnnxMNIST::build() {
     // ----------------------------
     // Create builder and network
     // ----------------------------
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger));
+    auto builder = UniquePtrTRT<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger));
     const auto explicitBatch =
         1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     auto network =
-        SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+        UniquePtrTRT<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
 
     // -------------------
     // Create ONNX parser
     // -------------------
     auto parser =
-        SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
+        UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
     parser->parseFromFile(mParams.onnxFilePath.c_str(),
                           static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
 
     // -------------
     // Build engine
     // -------------
-    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     /*
     builder->setMaxBatchSize(mParams.batchSize);
     config->setMaxWorkspaceSize(1 << 30);
@@ -98,18 +100,18 @@ void SampleOnnxMNIST::build() {
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
     */
 
-    mEngine = shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config),
-                                                InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+        builder->buildEngineWithConfig(*network, *config), InferDeleter());
 
     // -----------------------
     // Create buffer manager
     // -----------------------
-    mBufManager = make_unique<BufferManager>(mEngine);
+    mBufManager = std::make_unique<BufferManager>(mEngine);
 
     // ---------------
     // Create context
     // ---------------
-    mContext = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    mContext = UniquePtrTRT<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
 }
 
 void SampleOnnxMNIST::infer() {
@@ -136,7 +138,7 @@ void SampleOnnxMNIST::infer() {
     // --------
     // Execute
     // --------
-    vector<void *> buffers = mBufManager->getDeviceBindings();
+    std::vector<void *> buffers = mBufManager->getDeviceBindings();
     mContext->executeV2(buffers.data());
 
     // ----------------------
@@ -148,9 +150,9 @@ void SampleOnnxMNIST::infer() {
     // -------------
     // Print Result
     // -------------
-    cout << "Result" << endl;
+    std::cout << "Result" << std::endl;
     for (const auto &elem : hostOutBuffer) {
-        cout << elem << endl;
+        std::cout << elem << std::endl;
     }
 }
 

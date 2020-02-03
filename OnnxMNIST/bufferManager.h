@@ -1,30 +1,13 @@
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 #pragma once
 
-#include "NvInfer.h"
-#include <cassert>
-#include <cuda_runtime_api.h>
 #include <iostream>
-#include <iterator>
 #include <memory>
-#include <new>
 #include <numeric>
 #include <string>
 #include <vector>
+
+#include <NvInfer.h>
+#include <cuda_runtime_api.h>
 
 inline int volume(const nvinfer1::Dims &d) {
     return std::accumulate(d.d, d.d + d.nbDims, 1, std::multiplies<int>());
@@ -48,7 +31,7 @@ inline int getTypeSize(nvinfer1::DataType t) {
 
 class DeviceBuffer {
   public:
-    DeviceBuffer(int size, nvinfer1::DataType type) : mSize(size), mType(type) {
+    DeviceBuffer(int numel, nvinfer1::DataType type) : mNumEl(numel), mType(type) {
         if (!allocFn(&mBuffer, this->nbBytes())) {
             throw std::bad_alloc();
         }
@@ -58,18 +41,18 @@ class DeviceBuffer {
 
     const void *data() const { return mBuffer; }
 
-    int size() const { return mSize; }
-
-    int nbBytes() const { return this->size() * getTypeSize(mType); }
+    int nbBytes() const { return mNumEl * getTypeSize(mType); }
 
     ~DeviceBuffer() { freeFn(mBuffer); }
 
   private:
-    int mSize{0};
+    int mNumEl{0};
     nvinfer1::DataType mType;
     void *mBuffer;
 
-    bool allocFn(void **ptr, int size) const { return cudaMalloc(ptr, size) == cudaSuccess; }
+    bool allocFn(void **ptr, int byteSize) const {
+        return cudaMalloc(ptr, byteSize) == cudaSuccess;
+    }
 
     void freeFn(void *ptr) const { cudaFree(ptr); }
 };
