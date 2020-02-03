@@ -113,7 +113,7 @@ public:
         {
             auto dims = mEngine->getBindingDimensions(i);
             nvinfer1::DataType type = mEngine->getBindingDataType(i);
-            int vol = mEngine->getMaxBatchSize() * volume(dims);
+            int vol = volume(dims);
 
             mDeviceBuffers.push_back(make_unique<DeviceBuffer>(vol, type));
             mDeviceBindings.push_back(mDeviceBuffers.back()->data());
@@ -132,7 +132,7 @@ public:
         return mDeviceBindings;
     }
 
-    void memcpy(const string& tensorName, const bool hostToDevice, void* hostPtr)
+    void memcpy(const bool hostToDevice, const string& tensorName, void* hostPtr)
     {
         int index = getBindingIndex(tensorName);
         if (hostToDevice != mEngine->bindingIsInput(index)) {

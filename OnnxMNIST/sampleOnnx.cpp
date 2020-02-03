@@ -16,12 +16,10 @@ using namespace std;
 
 struct SampleParams
 {
-    int batchSize{1};                  //!< Number of inputs in a batch
-    int dlaCore{-1};                   //!< Specify the DLA core to run network on.
     bool int8{false};                  //!< Allow runnning the network in Int8 mode.
     bool fp16{false};                  //!< Allow running the network in FP16 mode.
-    std::vector<std::string> inputTensorNames;
-    std::vector<std::string> outputTensorNames;
+    std::string inputTensorName;
+    std::string outputTensorName;
     std::string onnxFilePath;
     std::string inputFilePath;
 };
@@ -98,7 +96,7 @@ void SampleOnnxMNIST::build()
     // Build engine
     // -------------
     auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-	builder->setMaxBatchSize(mParams.batchSize);
+	// builder->setMaxBatchSize(mParams.batchSize);
     /*
     config->setMaxWorkspaceSize(1 << 30);
     if (mParams.fp16) { config->setFlag(nvinfer1::BuilderFlag::kFP16); }
@@ -120,7 +118,7 @@ void SampleOnnxMNIST::infer()
     // -------------------
     // Prepare Input Data
     // -------------------
-    int inputIndex = mEngine->getBindingIndex(mParams.inputTensorNames[0].c_str());
+    int inputIndex = mEngine->getBindingIndex(mParams.inputTensorName.c_str());
     const int inputH = mEngine->getBindingDimensions(inputIndex).d[2];
     const int inputW = mEngine->getBindingDimensions(inputIndex).d[3];
 
@@ -128,16 +126,14 @@ void SampleOnnxMNIST::infer()
     readPGMFile(mParams.inputFilePath, fileData.data(), inputH, inputW);
 
     std::vector<float> hostInBuffer(inputH * inputW);
-    for (int i = 0; i < inputH * inputW; ++i)
-    {
+    for (int i = 0; i < inputH * inputW; ++i) {
         hostInBuffer[i] = 1.0 - float(fileData[i] / 255.0);
     }
-
 
     // ----------------------
     // Copy (Host -> Device)
     // ----------------------
-    mBufManager->memcpy(mParams.inputTensorNames[0], true, hostInBuffer.data());
+    mBufManager->memcpy(true, mParams.inputTensorName, hostInBuffer.data());
 
     // --------
     // Execute
@@ -145,16 +141,17 @@ void SampleOnnxMNIST::infer()
     vector<void*> buffers = mBufManager->getDeviceBindings();
 
     auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
-    // context->executeV2(buffers);
-    context->execute(1, buffers.data());
+    context->executeV2(buffers.data());
 
     // ----------------------
     // Copy (Device -> Host)
     // ----------------------
     std::vector<float> hostOutBuffer(10);
-    mBufManager->memcpy(mParams.outputTensorNames[0], false, hostOutBuffer.data());
+    mBufManager->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
 
-
+    // -------------
+    // Print Result
+    // -------------
     cout << "Result" << endl;
     for (const auto& elem: hostOutBuffer) { cout << elem << endl; }
 }
@@ -164,8 +161,8 @@ int main()
     SampleParams params;
     params.onnxFilePath = "./data/mnist.onnx";
     params.inputFilePath = "./data/8.pgm";
-    params.inputTensorNames.push_back("Input3");
-    params.outputTensorNames.push_back("Plus214_Output_0");
+    params.inputTensorName = "Input3";
+    params.outputTensorName = "Plus214_Output_0";
 
     SampleOnnxMNIST sample(params);
     sample.build();
