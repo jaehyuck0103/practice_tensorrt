@@ -14,16 +14,17 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")  # -Werror
 
 include_directories(/usr/local/cuda/include)
 include_directories($ENV{HOME}/Util/TensorRT-7.0.0.11/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 link_directories(/usr/local/cuda/lib64)
 link_directories($ENV{HOME}/Util/TensorRT-7.0.0.11/lib)
 
-add_executable(main sampleOnnx.cpp)
-target_link_libraries(main cudart nvinfer nvonnxparser) 
+add_executable(main1 OnnxMNIST/sampleOnnx.cpp)
+target_link_libraries(main1 cudart nvinfer nvonnxparser) 
 
 set(CMAKE_VERBOSE_MAKEFILE true)
 
-add_custom_target(run
-    COMMAND main
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}  # ${CMAKE_PROJECT_DIR}
+add_custom_target(run1
+    COMMAND main1
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/OnnxMNIST  # ${CMAKE_PROJECT_DIR}
     )

@@ -9,7 +9,7 @@
 #include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include "bufferManager.h"
+#include "common/bufferManager.h"
 
 struct SampleParams {
     bool int8{false}; //!< Allow runnning the network in Int8 mode.
@@ -19,24 +19,6 @@ struct SampleParams {
     std::string onnxFilePath;
     std::string inputFilePath;
 };
-
-class Logger : public nvinfer1::ILogger {
-    void log(nvinfer1::ILogger::Severity severity, const char *msg) override {
-        // suppress info-level messages
-        if (severity != nvinfer1::ILogger::Severity::kINFO)
-            std::cout << msg << std::endl;
-    }
-} gLogger;
-
-struct InferDeleter {
-    template <typename T> void operator()(T *obj) const {
-        if (obj) {
-            obj->destroy();
-        }
-    }
-};
-
-template <typename T> using UniquePtrTRT = std::unique_ptr<T, InferDeleter>;
 
 void readPGMFile(const std::string &fileName, uint8_t *buffer, int inH, int inW) {
     std::ifstream infile(fileName, std::ifstream::binary);
