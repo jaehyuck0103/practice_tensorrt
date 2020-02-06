@@ -19,8 +19,6 @@ namespace fs = std::experimental::filesystem;
 namespace chrono = std::chrono;
 
 struct SampleParams {
-    bool int8{false}; //!< Allow runnning the network in Int8 mode.
-    bool fp16{false}; //!< Allow running the network in FP16 mode.
     std::string inputTensorName;
     std::string outputTensorName;
     std::string onnxFilePath;
@@ -67,17 +65,6 @@ void TaillightInferenceAgent::build() {
     // -------------
     auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     config->setMaxWorkspaceSize(1 << 30);
-    /*
-    builder->setMaxBatchSize(mParams.batchSize);
-    if (mParams.fp16) { config->setFlag(nvinfer1::BuilderFlag::kFP16); }
-    if (mParams.int8)
-    {
-        config->setFlag(nvinfer1::BuilderFlag::kINT8);
-        samplesCommon::setAllTensorScales(network.get(), 127.0f, 127.0f);
-    }
-    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
-    */
-
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder->buildEngineWithConfig(*network, *config), InferDeleter());
 
@@ -163,21 +150,10 @@ std::vector<std::string> TaillightInferenceAgent::infer(std::vector<std::string>
         // ----------------------
         // Copy (Device -> Host)
         // ----------------------
-        std::vector<float> hostOutBuffer(8 * 8);
+        std::vector<int> hostOutBuffer(8);
         mBufManager->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
 
-        // -------
-        // Argmax
-        // -------
-        int argmaxIdx = 0;
-        float maxVal = hostOutBuffer[0];
-        for (int i = 1; i < 8; ++i) {
-            if (hostOutBuffer[i] > maxVal) {
-                argmaxIdx = i;
-                maxVal = hostOutBuffer[i];
-            }
-        }
-        resultStates.push_back(mStates[argmaxIdx]);
+        resultStates.push_back(mStates[hostOutBuffer[0]]);
     }
     return resultStates;
 }
