@@ -21,7 +21,7 @@ namespace chrono = std::chrono;
 struct SampleParams {
     std::string inputTensorName;
     std::string outputTensorName;
-    std::string onnxFilePath;
+    std::vector<std::string> onnxFilePath;
     std::string inputFileDir;
 };
 
@@ -30,19 +30,20 @@ class TaillightInferenceAgent {
   public:
     TaillightInferenceAgent(const SampleParams &params) : mParams(params) {}
 
-    void build();
+    void build(std::string onnxFilePath);
     std::vector<std::string> infer(std::vector<std::string> imgPaths);
+    void benchmark_speed();
 
   private:
     SampleParams mParams;
     const std::vector<std::string> mStates{"OOO", "BOO", "OLO", "BLO", "OOR", "BOR", "OLR", "BLR"};
 
-    std::unique_ptr<BufferManager> mBufManager{nullptr};
-    std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
-    UniquePtrTRT<nvinfer1::IExecutionContext> mContext{nullptr};
+    std::vector<std::unique_ptr<BufferManager>> mBufManagers;
+    // std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
+    std::vector<UniquePtrTRT<nvinfer1::IExecutionContext>> mContexts;
 };
 
-void TaillightInferenceAgent::build() {
+void TaillightInferenceAgent::build(std::string onnxFilePath) {
     // ----------------------------
     // Create builder and network
     // ----------------------------
@@ -57,7 +58,7 @@ void TaillightInferenceAgent::build() {
     // -------------------
     auto parser =
         UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile(mParams.onnxFilePath.c_str(),
+    parser->parseFromFile(onnxFilePath.c_str(),
                           static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
 
     // -------------
@@ -65,18 +66,20 @@ void TaillightInferenceAgent::build() {
     // -------------
     auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     config->setMaxWorkspaceSize(1 << 30);
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+
+    std::shared_ptr<nvinfer1::ICudaEngine> engine = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder->buildEngineWithConfig(*network, *config), InferDeleter());
 
     // -----------------------
     // Create buffer manager
     // -----------------------
-    mBufManager = std::make_unique<BufferManager>(mEngine);
+    mBufManagers.push_back(std::make_unique<BufferManager>(engine));
 
     // ---------------
     // Create context
     // ---------------
-    mContext = UniquePtrTRT<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    mContexts.push_back(
+        UniquePtrTRT<nvinfer1::IExecutionContext>(engine->createExecutionContext()));
 }
 
 std::vector<std::string> TaillightInferenceAgent::infer(std::vector<std::string> imgPaths) {
@@ -118,7 +121,8 @@ std::vector<std::string> TaillightInferenceAgent::infer(std::vector<std::string>
         elem = (elem - 0.5) * 4.0;
     }
 
-    std::vector<float> hostInBuffer(8 * 16 * 3 * 112 * 112);
+    std::vector<float> hostInBuffer(1 * 16 * 3 * 112 * 112);
+    std::vector<float> hostMidBuffer(8 * 16 * 64 * 28 * 28);
     for (int iSeq = 0; iSeq < seqLen; ++iSeq) {
         // -------------------
         // Prepare Input Data
@@ -139,36 +143,96 @@ std::vector<std::string> TaillightInferenceAgent::infer(std::vector<std::string>
         // ----------------------
         // Copy (Host -> Device)
         // ----------------------
-        mBufManager->memcpy(true, mParams.inputTensorName, hostInBuffer.data());
+        mBufManagers[0]->memcpy(true, mParams.inputTensorName, hostInBuffer.data());
 
-        // --------
-        // Execute
-        // --------
-        std::vector<void *> buffers = mBufManager->getDeviceBindings();
-        mContext->executeV2(buffers.data());
+        // -------------
+        // Execute Unet
+        // -------------
+        std::vector<void *> buffers1 = mBufManagers[0]->getDeviceBindings();
+        mContexts[0]->executeV2(buffers1.data());
+
+        // --------------------------------
+        // Copy (Device -> Host -> Device)
+        // --------------------------------
+        mBufManagers[0]->memcpy(false, mParams.outputTensorName, hostMidBuffer.data());
+        mBufManagers[1]->memcpy(true, mParams.inputTensorName, hostMidBuffer.data());
+
+        // ---------------
+        // Execute 3Dconv
+        // ---------------
+        std::vector<void *> buffers2 = mBufManagers[1]->getDeviceBindings();
+        mContexts[1]->executeV2(buffers2.data());
 
         // ----------------------
         // Copy (Device -> Host)
         // ----------------------
         std::vector<int> hostOutBuffer(8);
-        mBufManager->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
+        mBufManagers[1]->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
 
         resultStates.push_back(mStates[hostOutBuffer[0]]);
     }
     return resultStates;
 }
 
+void TaillightInferenceAgent::benchmark_speed() {
+    std::vector<float> hostInBuffer(1 * 16 * 3 * 112 * 112);
+    std::vector<float> hostMidBuffer(8 * 16 * 64 * 28 * 28);
+
+    for (int i = 0; i < 1000; ++i) {
+
+        std::fill(hostInBuffer.begin(), hostInBuffer.end(), i); // dummy test
+
+        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+
+        // ----------------------
+        // Copy (Host -> Device)
+        // ----------------------
+        mBufManagers[0]->memcpy(true, mParams.inputTensorName, hostInBuffer.data());
+
+        // -------------
+        // Execute Unet
+        // -------------
+        std::vector<void *> buffers1 = mBufManagers[0]->getDeviceBindings();
+        mContexts[0]->executeV2(buffers1.data());
+
+        // --------------------------------
+        // Copy (Device -> Host -> Device)
+        // --------------------------------
+        mBufManagers[0]->memcpy(false, mParams.outputTensorName, hostMidBuffer.data());
+        mBufManagers[1]->memcpy(true, mParams.inputTensorName, hostMidBuffer.data());
+
+        // ---------------
+        // Execute 3Dconv
+        // ---------------
+        std::vector<void *> buffers2 = mBufManagers[1]->getDeviceBindings();
+        mContexts[1]->executeV2(buffers2.data());
+
+        // ----------------------
+        // Copy (Device -> Host)
+        // ----------------------
+        std::vector<int> hostOutBuffer(8);
+        mBufManagers[1]->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
+
+        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+        auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+        std::cout << "processing_time (micro sec): " << duration << std::endl;
+    }
+}
+
 int main() {
     SampleParams params;
-    params.onnxFilePath =
-        "/home/jae/extern/Projects/ETRI_TailLightRecognition/Output/taillight.onnx";
+    params.onnxFilePath.push_back(
+        "/home/jae/extern/Projects/ETRI_TailLightRecognition/Output/taillight_unet.onnx");
+    params.onnxFilePath.push_back(
+        "/home/jae/extern/Projects/ETRI_TailLightRecognition/Output/taillight_3Dconv.onnx");
     params.inputFileDir =
         "/home/jae/extern/Projects/ETRI_TailLightRecognition/Data/ETRI_CROP_TIGHT";
     params.inputTensorName = "Input";
     params.outputTensorName = "Output";
 
     TaillightInferenceAgent agent(params);
-    agent.build();
+    agent.build(params.onnxFilePath[0]);
+    agent.build(params.onnxFilePath[1]);
 
     // ----------
     // Infer Seq
@@ -196,15 +260,10 @@ int main() {
         std::cout << targetParent << " Completed " << std::endl;
     }
 
-    return 0;
+    // ----------------
+    // Benchmark speed
+    // -----------------
+    agent.benchmark_speed();
 
-    /*
-    for (int i = 0; i < 1000; ++i) {
-        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        // agent.infer();
-        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-        auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
-        std::cout << "processing_time (micro sec): " << duration << std::endl;
-    }
-    */
+    return 0;
 }
