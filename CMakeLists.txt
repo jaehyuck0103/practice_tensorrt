@@ -12,6 +12,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")  # -Werror
 
+find_package(OpenCV REQUIRED)
+
 include_directories(/usr/local/cuda/include)
 include_directories($ENV{HOME}/Util/TensorRT-7.0.0.11/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -23,7 +25,7 @@ add_executable(main1 apps/OnnxMNIST/sampleOnnx.cpp)
 target_link_libraries(main1 cudart nvinfer nvonnxparser) 
 
 add_executable(main2 apps/taillight/taillight.cpp)
-target_link_libraries(main2 cudart nvinfer nvonnxparser) 
+target_link_libraries(main2 cudart nvinfer nvonnxparser ${OpenCV_LIBS} stdc++fs) 
 
 set(CMAKE_VERBOSE_MAKEFILE true)
 
