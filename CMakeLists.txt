@@ -27,6 +27,9 @@ target_link_libraries(main1 cudart nvinfer nvonnxparser)
 add_executable(main2 apps/taillight/taillight.cpp)
 target_link_libraries(main2 cudart nvinfer nvonnxparser ${OpenCV_LIBS} stdc++fs) 
 
+add_executable(main3 apps/MultiInput/multiInput.cpp)
+target_link_libraries(main3 cudart nvinfer nvonnxparser) 
+
 set(CMAKE_VERBOSE_MAKEFILE true)
 
 add_custom_target(run1
@@ -37,4 +40,9 @@ add_custom_target(run1
 add_custom_target(run2
     COMMAND main2
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight  # ${CMAKE_PROJECT_DIR}
+    )
+
+add_custom_target(run3
+    COMMAND main3
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/apps/MultiInput  # ${CMAKE_PROJECT_DIR}
     )
