@@ -17,6 +17,7 @@ find_package(OpenCV REQUIRED)
 include_directories(/usr/local/cuda/include)
 include_directories($ENV{HOME}/Util/TensorRT-7.0.0.11/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(third_party/eigen-3.3.7)
 
 link_directories(/usr/local/cuda/lib64)
 link_directories($ENV{HOME}/Util/TensorRT-7.0.0.11/lib)
@@ -29,6 +30,9 @@ target_link_libraries(main2 cudart nvinfer nvonnxparser ${OpenCV_LIBS} stdc++fs)
 
 add_executable(main3 apps/MultiInput/multiInput.cpp)
 target_link_libraries(main3 cudart nvinfer nvonnxparser) 
+
+add_executable(main4 apps/taillight2/main.cpp)
+target_link_libraries(main4 cudart nvinfer nvonnxparser ${OpenCV_LIBS}) 
 
 set(CMAKE_VERBOSE_MAKEFILE true)
 
@@ -45,4 +49,9 @@ add_custom_target(run2
 add_custom_target(run3
     COMMAND main3
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/apps/MultiInput  # ${CMAKE_PROJECT_DIR}
+    )
+
+add_custom_target(run4
+    COMMAND main4
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight2  # ${CMAKE_PROJECT_DIR}
     )
