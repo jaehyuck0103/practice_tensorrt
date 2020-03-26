@@ -2,9 +2,9 @@
 #include <Eigen/Geometry>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <string>
-#include <third_party/nlohmann/json.hpp>
 #include <vector>
 
 using json = nlohmann::json;
@@ -58,19 +58,47 @@ class Instance {
         return valid.all();
     }
 
-    void render_to_img(cv::Mat &img) {
-        const std::vector<std::pair<int, int>> pairs{
+    void render_to_img(cv::Mat &img) const {
+
+        auto render_pairs = [&img, this](const std::vector<std::pair<int, int>> &pairs,
+                                         cv::Scalar color) {
+            for (const auto &p : pairs) {
+                cv::Point point1{static_cast<int>(this->mCorners2D(0, p.first) + 0.5),
+                                 static_cast<int>(this->mCorners2D(1, p.first) + 0.5)};
+                cv::Point point2{static_cast<int>(this->mCorners2D(0, p.second) + 0.5),
+                                 static_cast<int>(this->mCorners2D(1, p.second) + 0.5)};
+                cv::line(img, point1, point2, color);
+            }
+        };
+
+        // Render 3D Box
+        const std::vector<std::pair<int, int>> boxPairs{
             {0, 1}, {0, 2}, {0, 4}, {1, 3}, {1, 5}, {2, 3},
             {2, 6}, {3, 7}, {4, 5}, {4, 6}, {5, 7}, {6, 7},
         };
 
-        for (const auto &p : pairs) {
-            cv::Point point1{static_cast<int>(mCorners2D(0, p.first) + 0.5),
-                             static_cast<int>(mCorners2D(1, p.first) + 0.5)};
-            cv::Point point2{static_cast<int>(mCorners2D(0, p.second) + 0.5),
-                             static_cast<int>(mCorners2D(1, p.second) + 0.5)};
-            cv::line(img, point1, point2, cv::Scalar{0, 0, 255});
+        render_pairs(boxPairs, cv::Scalar{0, 0, 255});
+
+        // Render front box
+        const std::vector<std::pair<int, int>> frontPairs{
+            {4, 5},
+            {4, 6},
+            {5, 7},
+            {6, 7},
+        };
+
+        render_pairs(frontPairs, cv::Scalar{255, 0, 0});
+    }
+
+    void get_mask(cv::Mat &img) const {
+        std::vector<cv::Point> points;
+        for (int c = 0; c < mCorners2D.cols(); ++c) {
+            points.emplace_back(static_cast<int>(mCorners2D(0, c) + 0.5),
+                                static_cast<int>(mCorners2D(1, c) + 0.5));
         }
+        std::vector<cv::Point> hull;
+        cv::convexHull(points, hull);
+        cv::fillConvexPoly(img, hull, cv::Scalar{1.0});
     }
 
   private:
@@ -85,9 +113,9 @@ class Instance {
 
     void setCorners() {
         // clang-format off
-        mCorners3D << 1, 1, 1, 1, -1, -1, -1, -1, 
-                      1, -1, -1, 1, 1, -1, -1, 1,
-                      1, 1, -1, -1, 1, 1, -1, -1;
+        mCorners3D << -1, -1, -1, -1, 1, 1, 1, 1, 
+                      -1, -1, 1, 1, -1, -1, 1, 1,
+                      -1, 1, -1, 1, -1, 1, -1, 1;
         // clang-format on
         mCorners3D.array().colwise() *= (0.5 * mLwh.array());
 
@@ -142,14 +170,14 @@ int main() {
             inst.render_to_img(img);
         }
 
-        /*
-                for (auto &eachInst : instVec) {
-            eachInst.box_in_image(img.cols, img.rows);
-            exit(0);
-            }
-        */
+        //
+        cv::Mat mask{img.rows, img.cols, CV_32FC1, cv::Scalar(0)};
+        for (auto &eachInst : instVec) {
+            eachInst.get_mask(mask);
+        }
 
         cv::imshow("img", img);
+        cv::imshow("mask", mask);
         if (cv::waitKey() == 'q')
             break;
     }
