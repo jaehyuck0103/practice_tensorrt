@@ -32,6 +32,9 @@ const Eigen::Matrix<float, 3, 4> CalibParams::P = K * RT.inverse().topRows(3);
 class Instance {
   public:
     Instance(const json &inputRow) {
+        /* ---------------------*
+         * Set by input
+         * ---------------------*/
         // 0    classId in ascending order (car, truck(bus), pedestrian, bicycle(motorcycle))
         // 1    trackingId
         // 2~7  xyzlwh (unit: meter)
@@ -42,10 +45,26 @@ class Instance {
         mLwh << inputRow[5].get<float>(), inputRow[6].get<float>(), inputRow[7].get<float>();
         mYaw = inputRow[8].get<float>();
 
-        setCorners();
+        /* ---------------------*
+         * Set corners (3D, 2D)
+         * ---------------------*/
+        // clang-format off
+        mCorners3D << -1, -1, -1, -1, 1, 1, 1, 1, 
+                      -1, -1, 1, 1, -1, -1, 1, 1,
+                      -1, 1, -1, 1, -1, 1, -1, 1;
+        // clang-format on
+        mCorners3D.array().colwise() *= (0.5 * mLwh.array());
+
+        // Rotate and Translate
+        const Eigen::Affine3f transform =
+            Eigen::Translation3f(mXyzCenter) * Eigen::AngleAxisf(mYaw, Eigen::Vector3f(0, 0, 1));
+        mCorners3D = transform * mCorners3D;
+
+        // Project Corners
+        mCorners2D = (CalibParams::P * mCorners3D.colwise().homogeneous()).colwise().hnormalized();
     }
 
-    bool box_in_image(int imgW, int imgH) const {
+    bool isCornersInImage(int imgW, int imgH) const {
 
         Eigen::Matrix<float, 1, 8> cornersU = mCorners2D.row(0);
         Eigen::Matrix<float, 1, 8> cornersV = mCorners2D.row(1);
@@ -58,10 +77,10 @@ class Instance {
         return valid.all();
     }
 
-    void render_to_img(cv::Mat &img) const {
+    void renderToImg(cv::Mat &img) const {
 
-        auto render_pairs = [&img, this](const std::vector<std::pair<int, int>> &pairs,
-                                         cv::Scalar color) {
+        auto renderPairs = [&img, this](const std::vector<std::pair<int, int>> &pairs,
+                                        cv::Scalar color) {
             for (const auto &p : pairs) {
                 cv::Point point1{static_cast<int>(this->mCorners2D(0, p.first) + 0.5),
                                  static_cast<int>(this->mCorners2D(1, p.first) + 0.5)};
@@ -77,7 +96,7 @@ class Instance {
             {2, 6}, {3, 7}, {4, 5}, {4, 6}, {5, 7}, {6, 7},
         };
 
-        render_pairs(boxPairs, cv::Scalar{0, 0, 255});
+        renderPairs(boxPairs, cv::Scalar{0, 0, 255});
 
         // Render front box
         const std::vector<std::pair<int, int>> frontPairs{
@@ -87,10 +106,10 @@ class Instance {
             {6, 7},
         };
 
-        render_pairs(frontPairs, cv::Scalar{255, 0, 0});
+        renderPairs(frontPairs, cv::Scalar{255, 0, 0});
     }
 
-    void get_mask(cv::Mat &img) const {
+    void getMask(cv::Mat &img) const {
         std::vector<cv::Point> points;
         for (int c = 0; c < mCorners2D.cols(); ++c) {
             points.emplace_back(static_cast<int>(mCorners2D(0, c) + 0.5),
@@ -110,23 +129,6 @@ class Instance {
 
     Eigen::Matrix<float, 3, 8> mCorners3D;
     Eigen::Matrix<float, 2, 8> mCorners2D;
-
-    void setCorners() {
-        // clang-format off
-        mCorners3D << -1, -1, -1, -1, 1, 1, 1, 1, 
-                      -1, -1, 1, 1, -1, -1, 1, 1,
-                      -1, 1, -1, 1, -1, 1, -1, 1;
-        // clang-format on
-        mCorners3D.array().colwise() *= (0.5 * mLwh.array());
-
-        // Rotate and Translate
-        const Eigen::Affine3f transform =
-            Eigen::Translation3f(mXyzCenter) * Eigen::AngleAxisf(mYaw, Eigen::Vector3f(0, 0, 1));
-        mCorners3D = transform * mCorners3D;
-
-        // Project Corners
-        mCorners2D = (CalibParams::P * mCorners3D.colwise().homogeneous()).colwise().hnormalized();
-    }
 };
 
 int main() {
@@ -162,18 +164,18 @@ int main() {
         // Filtering
         instVec.erase(
             std::remove_if(instVec.begin(), instVec.end(),
-                           [&img](auto x) { return !x.box_in_image(img.cols, img.rows); }),
+                           [&img](auto x) { return !x.isCornersInImage(img.cols, img.rows); }),
             instVec.end());
 
         // Rendering
         for (auto &inst : instVec) {
-            inst.render_to_img(img);
+            inst.renderToImg(img);
         }
 
         //
         cv::Mat mask{img.rows, img.cols, CV_32FC1, cv::Scalar(0)};
         for (auto &eachInst : instVec) {
-            eachInst.get_mask(mask);
+            eachInst.getMask(mask);
         }
 
         cv::imshow("img", img);
