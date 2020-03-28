@@ -1,5 +1,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -62,6 +63,11 @@ class Instance {
 
         // Project Corners
         mCorners2D = (CalibParams::P * mCorners3D.colwise().homogeneous()).colwise().hnormalized();
+
+        /* ----------------------------------*
+         * Minimun distance to box (roughly)
+         * ----------------------------------*/
+        mDist = mCorners3D.topRows(2).colwise().norm().minCoeff();
     }
 
     bool isCornersInImage(int imgW, int imgH) const {
@@ -120,6 +126,9 @@ class Instance {
         cv::fillConvexPoly(img, hull, cv::Scalar{1.0});
     }
 
+    // getter, setter
+    float dist() const { return mDist; }
+
   private:
     int mClassId;
     int mTrackId;
@@ -129,6 +138,8 @@ class Instance {
 
     Eigen::Matrix<float, 3, 8> mCorners3D;
     Eigen::Matrix<float, 2, 8> mCorners2D;
+
+    float mDist;
 };
 
 int main() {
@@ -153,13 +164,18 @@ int main() {
             if (classId == 2) {
                 continue;
             }
-            if (centerX < 4 || abs(centerY) > 10) {
+            if (centerX < 4 || centerX > 40 || abs(centerY) > 10) {
                 continue;
             }
 
             // Generate Instance
             instVec.emplace_back(eachObj);
         }
+
+        // Sorting by distance
+        std::sort(instVec.begin(), instVec.end(), [](const Instance &lhs, const Instance &rhs) {
+            return lhs.dist() < rhs.dist();
+        });
 
         // Filtering
         instVec.erase(
@@ -168,13 +184,13 @@ int main() {
             instVec.end());
 
         // Rendering
-        for (auto &inst : instVec) {
+        for (const auto &inst : instVec) {
             inst.renderToImg(img);
         }
 
         //
         cv::Mat mask{img.rows, img.cols, CV_32FC1, cv::Scalar(0)};
-        for (auto &eachInst : instVec) {
+        for (const auto &eachInst : instVec) {
             eachInst.getMask(mask);
         }
 
