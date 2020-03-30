@@ -1,19 +1,23 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
 
 using json = nlohmann::json;
 
+typedef Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> MatrixXXb;
+
 struct CalibParams {
     static const Eigen::Matrix4f RT;
+    static const Eigen::Matrix4f RTinv;
     static const Eigen::Matrix3f K;
-    static const Eigen::Matrix<float, 3, 4> P;
 };
 // clang-format off
 const Eigen::Matrix4f CalibParams::RT = (
@@ -22,17 +26,23 @@ const Eigen::Matrix4f CalibParams::RT = (
                              0.011508, -0.999928, 0.003463, 1.457150,
                              0, 0, 0, 1
         ).finished();
+const Eigen::Matrix4f CalibParams::RTinv = RT.inverse();
 const Eigen::Matrix3f CalibParams::K = (
         Eigen::Matrix3f() << 819.162645, 0.000000, 640.000000,
                              0.000000, 819.162645, 240.000000,
                              0.000000, 0.000000, 1.000000
         ).finished();
-const Eigen::Matrix<float, 3, 4> CalibParams::P = K * RT.inverse().topRows(3);
 // clang-format on
+
+// angleDiff (-pi, pi)
+float angleDiff(float toAngle, float fromAngle) {
+    return remainder((toAngle - fromAngle), 2 * M_PI);
+}
 
 class Instance {
   public:
     Instance(const json &inputRow) {
+
         /* ---------------------*
          * Set by input
          * ---------------------*/
@@ -61,26 +71,52 @@ class Instance {
             Eigen::Translation3f(mXyzCenter) * Eigen::AngleAxisf(mYaw, Eigen::Vector3f(0, 0, 1));
         mCorners3D = transform * mCorners3D;
 
-        // Project Corners
-        mCorners2D = (CalibParams::P * mCorners3D.colwise().homogeneous()).colwise().hnormalized();
+        // camera coordinates
+        mCornersCam3D =
+            (CalibParams::RTinv * mCorners3D.colwise().homogeneous()).colwise().hnormalized();
+
+        // Project Corners to image
+        mCorners2D = (CalibParams::K * mCornersCam3D).colwise().hnormalized();
 
         /* ----------------------------------*
          * Minimun distance to box (roughly)
          * ----------------------------------*/
         mDist = mCorners3D.topRows(2).colwise().norm().minCoeff();
+
+        /* -----------------------------------------------------------------*
+         * mYawDiff : 차량 뒷면을 바라보는 angle과 차량 yaw angle 간의 차이
+         * -----------------------------------------------------------------*/
+        const Eigen::Vector3f rearCenter = mCornersCam3D.leftCols(4).rowwise().mean();
+        const float viewAngleToRear = atan2(rearCenter(2), rearCenter(0));
+        mYawDiff = abs(angleDiff(viewAngleToRear, mYaw));
     }
 
-    bool isCornersInImage(int imgW, int imgH) const {
+    bool isAnyCornersInImage(int imgH, int imgW) const {
 
-        Eigen::Matrix<float, 1, 8> cornersU = mCorners2D.row(0);
-        Eigen::Matrix<float, 1, 8> cornersV = mCorners2D.row(1);
-        Eigen::Matrix<float, 1, 8> cornersX = mCorners3D.row(0);
+        const Eigen::Matrix<float, 1, 8> cornersU = mCorners2D.row(0);
+        const Eigen::Matrix<float, 1, 8> cornersV = mCorners2D.row(1);
 
-        Eigen::Matrix<bool, 1, 8> valid = cornersU.array() > 0 && cornersU.array() < imgW &&
-                                          cornersV.array() > 0 && cornersV.array() < imgH &&
-                                          cornersX.array() > 2;
+        const Eigen::Matrix<bool, 1, 8> valid = cornersU.array() > 0 && cornersU.array() < imgW &&
+                                                cornersV.array() > 0 && cornersV.array() < imgH;
+
+        return valid.any();
+    }
+
+    /*
+     * corner가 camera 뒤에 위치하면 projection 하였을 때 문제 발생.
+     * 하지만 bus와 같이 긴 object이면, corner가 camera 뒤에 위치하면서도,
+     * 다른 corner는 camera에 잡힐 수 있다.
+     * 추후 해결 필요.
+     */
+    bool isAllCornersFrontOfCam() const {
+        const Eigen::Matrix<float, 1, 8> cornersCamZ = mCornersCam3D.row(2);
+        const Eigen::Matrix<bool, 1, 8> valid = cornersCamZ.array() > 0;
 
         return valid.all();
+    }
+
+    bool isValidForProjection(int imgH, int imgW) const {
+        return isAnyCornersInImage(imgH, imgW) && isAllCornersFrontOfCam();
     }
 
     void renderToImg(cv::Mat &img) const {
@@ -115,7 +151,10 @@ class Instance {
         renderPairs(frontPairs, cv::Scalar{255, 0, 0});
     }
 
-    void getMask(cv::Mat &img) const {
+    MatrixXXb getMask(int imgH, int imgW) const {
+
+        cv::Mat mask{imgH, imgW, CV_8UC1, cv::Scalar(0)};
+
         std::vector<cv::Point> points;
         for (int c = 0; c < mCorners2D.cols(); ++c) {
             points.emplace_back(static_cast<int>(mCorners2D(0, c) + 0.5),
@@ -123,7 +162,12 @@ class Instance {
         }
         std::vector<cv::Point> hull;
         cv::convexHull(points, hull);
-        cv::fillConvexPoly(img, hull, cv::Scalar{1.0});
+        cv::fillConvexPoly(mask, hull, cv::Scalar{1});
+
+        // cv -> eigen
+        MatrixXXb maskEigen;
+        cv::cv2eigen(mask, maskEigen);
+        return maskEigen;
     }
 
     // getter, setter
@@ -136,10 +180,12 @@ class Instance {
     Eigen::Vector3f mLwh;
     float mYaw;
 
-    Eigen::Matrix<float, 3, 8> mCorners3D;
-    Eigen::Matrix<float, 2, 8> mCorners2D;
+    Eigen::Matrix<float, 3, 8> mCorners3D;    // vehicle coordinate
+    Eigen::Matrix<float, 3, 8> mCornersCam3D; // camera coordinate
+    Eigen::Matrix<float, 2, 8> mCorners2D;    // image coordinate
 
     float mDist;
+    float mYawDiff;
 };
 
 int main() {
@@ -151,9 +197,9 @@ int main() {
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
         imgFilePath = "/mnt/EVO_4TB/VoSS/20200316-174732(20191213-125018_emul)/" + imgFilePath;
-        cv::Mat img = cv::imread(imgFilePath);
-
         std::cout << imgFilePath << std::endl;
+        cv::Mat img = cv::imread(imgFilePath);
+        cv::Mat displayImg = img.clone();
 
         std::vector<Instance> instVec;
         for (const auto &eachObj : eachFrame["objs"]) {
@@ -172,30 +218,36 @@ int main() {
             instVec.emplace_back(eachObj);
         }
 
+        // image 내에 projection 안되는 instances 제거
+        instVec.erase(
+            std::remove_if(instVec.begin(), instVec.end(),
+                           [&img](auto x) { return !x.isValidForProjection(img.rows, img.cols); }),
+            instVec.end());
+
         // Sorting by distance
         std::sort(instVec.begin(), instVec.end(), [](const Instance &lhs, const Instance &rhs) {
             return lhs.dist() < rhs.dist();
         });
 
-        // Filtering
-        instVec.erase(
-            std::remove_if(instVec.begin(), instVec.end(),
-                           [&img](auto x) { return !x.isCornersInImage(img.cols, img.rows); }),
-            instVec.end());
-
-        // Rendering
+        // Render Boxes
         for (const auto &inst : instVec) {
-            inst.renderToImg(img);
+            inst.renderToImg(displayImg);
         }
 
         //
-        cv::Mat mask{img.rows, img.cols, CV_32FC1, cv::Scalar(0)};
+        MatrixXXb stackMask = MatrixXXb::Zero(img.rows, img.cols);
         for (const auto &eachInst : instVec) {
-            eachInst.getMask(mask);
+            MatrixXXb instMask = eachInst.getMask(img.rows, img.cols);
+            stackMask = stackMask || instMask;
         }
 
-        cv::imshow("img", img);
-        cv::imshow("mask", mask);
+        // eigen -> opencv
+        cv::Mat displayMask{img.rows, img.cols, CV_8UC1, cv::Scalar(0)};
+        cv::eigen2cv(stackMask, displayMask);
+        displayMask *= 255;
+
+        cv::imshow("img_display", displayImg);
+        cv::imshow("mask_display", displayMask);
         if (cv::waitKey() == 'q')
             break;
     }
