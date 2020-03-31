@@ -32,7 +32,7 @@ target_link_libraries(main2 cudart nvinfer nvonnxparser ${OpenCV_LIBS} stdc++fs)
 add_executable(main3 apps/MultiInput/multiInput.cpp)
 target_link_libraries(main3 cudart nvinfer nvonnxparser) 
 
-add_executable(main4 apps/taillight2/main.cpp)
+add_executable(main4 apps/taillight2/main.cpp apps/taillight2/instance.cpp apps/taillight2/common.cpp)
 target_link_libraries(main4 cudart nvinfer nvonnxparser ${OpenCV_LIBS}) 
 
 set(CMAKE_VERBOSE_MAKEFILE true)

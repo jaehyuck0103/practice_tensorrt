@@ -2,7 +2,7 @@
 build/
 compile_commands.json
 __pycache__/
-/apps/taillight2/*.json
+/apps/taillight2/scripts/*.json
 
 # Prerequisites
 *.d
