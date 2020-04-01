@@ -12,10 +12,13 @@ class Instance {
 
     bool isAnyCornersInImage(int imgH, int imgW) const;
     bool isAllCornersFrontOfCam() const;
-    bool isValidForProjection(int imgH, int imgW) const;
+    bool isValidProjection(int imgH, int imgW) const;
+    bool isCar() const; // 차종 상관없이 차인지 여부
 
     void renderToImg(cv::Mat &img) const;
-    MatrixXXb getMask(int imgH, int imgW) const;
+
+    bool isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) const;
+    MatrixXXb getMask(int imgH, int imgW, bool tailOnly) const;
 
     // getter, setter
     float dist() const { return mDist; }

@@ -39,10 +39,10 @@ int main() {
             instVec.emplace_back(eachObj);
         }
 
-        // image 내에 projection 안되는 instances 제거
+        // image 내에 약간이라도 projection되는 instance만 남김.
         instVec.erase(
             std::remove_if(instVec.begin(), instVec.end(),
-                           [&img](auto x) { return !x.isValidForProjection(img.rows, img.cols); }),
+                           [&img](auto x) { return !x.isValidProjection(img.rows, img.cols); }),
             instVec.end());
 
         // Sorting by distance
@@ -56,9 +56,13 @@ int main() {
         }
 
         //
+        std::vector<Instance> tailValidVec;
         MatrixXXb stackMask = MatrixXXb::Zero(img.rows, img.cols);
         for (const auto &eachInst : instVec) {
-            MatrixXXb instMask = eachInst.getMask(img.rows, img.cols);
+            if (eachInst.isTailInSight(img.rows, img.cols, stackMask)) {
+                tailValidVec.push_back(eachInst);
+            }
+            const MatrixXXb instMask = eachInst.getMask(img.rows, img.cols, false);
             stackMask = stackMask || instMask;
         }
 

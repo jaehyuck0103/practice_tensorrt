@@ -46,8 +46,8 @@ Instance::Instance(const json &inputRow) {
     /* -----------------------------------------------------------------*
      * mYawDiff : 차량 뒷면을 바라보는 angle과 차량 yaw angle 간의 차이
      * -----------------------------------------------------------------*/
-    const Eigen::Vector3f rearCenter = mCornersCam3D.leftCols(4).rowwise().mean();
-    const float viewAngleToRear = atan2(rearCenter(2), rearCenter(0));
+    const Eigen::Vector3f tailCenter = mCornersCam3D.leftCols(4).rowwise().mean();
+    const float viewAngleToRear = atan2(tailCenter(2), tailCenter(0));
     mYawDiff = abs(angleDiff(viewAngleToRear, mYaw));
 }
 
@@ -75,8 +75,16 @@ bool Instance::isAllCornersFrontOfCam() const {
     return valid.all();
 }
 
-bool Instance::isValidForProjection(int imgH, int imgW) const {
+bool Instance::isValidProjection(int imgH, int imgW) const {
     return isAnyCornersInImage(imgH, imgW) && isAllCornersFrontOfCam();
+}
+
+bool Instance::isCar() const {
+    if (mClassId == 0 || mClassId == 1) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void Instance::renderToImg(cv::Mat &img) const {
@@ -111,12 +119,48 @@ void Instance::renderToImg(cv::Mat &img) const {
     renderPairs(frontPairs, cv::Scalar{255, 0, 0});
 }
 
-MatrixXXb Instance::getMask(int imgH, int imgW) const {
+bool Instance::isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) const {
+    // 1. 자동차 맞는지
+    if (!isCar())
+        return false;
+
+    // 2. tail과 view의 각도
+    if (mYawDiff > 0.25 * M_PI)
+        return false;
+
+    // 3. tail corner가 모두 이미지 안에 있는지...
+    const Eigen::Matrix<float, 2, 4> tailCorners2D = mCorners2D.leftCols(4);
+    const Eigen::Matrix<float, 1, 4> tailCornersU = tailCorners2D.row(0);
+    const Eigen::Matrix<float, 1, 4> tailCornersV = tailCorners2D.row(1);
+
+    const Eigen::Matrix<bool, 1, 4> valid =
+        tailCornersU.array() > 0 && tailCornersU.array() < imgW && tailCornersV.array() > 0 &&
+        tailCornersV.array() < imgH;
+
+    if (!valid.all())
+        return false;
+
+    // 4. tail projection의 size가 충분히 큰지.
+    const MatrixXXb tailMask = getMask(imgH, imgW, true);
+    const int tailMaskSize = tailMask.count();
+    if (tailMaskSize < 50 * 50)
+        return false;
+
+    // 5. 전방의 물체에 가리진 않는지.
+    const int intersection = (stackMask && tailMask).count();
+    if (static_cast<float>(intersection) / static_cast<float>(tailMaskSize) > 0.1)
+        return false;
+
+    return true;
+};
+
+MatrixXXb Instance::getMask(int imgH, int imgW, bool tailOnly) const {
 
     cv::Mat mask{imgH, imgW, CV_8UC1, cv::Scalar(0)};
 
     std::vector<cv::Point> points;
-    for (int c = 0; c < mCorners2D.cols(); ++c) {
+    const int numCols = tailOnly ? 4 : mCorners2D.cols();
+    for (int c = 0; c < numCols; ++c) {
         points.emplace_back(static_cast<int>(mCorners2D(0, c) + 0.5),
                             static_cast<int>(mCorners2D(1, c) + 0.5));
     }
