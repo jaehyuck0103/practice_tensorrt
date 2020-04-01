@@ -50,12 +50,7 @@ int main() {
             return lhs.dist() < rhs.dist();
         });
 
-        // Render Boxes
-        for (const auto &inst : instVec) {
-            inst.renderToImg(displayImg);
-        }
-
-        //
+        // 가림이 없는 tail view를 가지는 instances 추출.
         std::vector<Instance> tailValidVec;
         MatrixXXb stackMask = MatrixXXb::Zero(img.rows, img.cols);
         for (const auto &eachInst : instVec) {
@@ -64,6 +59,11 @@ int main() {
             }
             const MatrixXXb instMask = eachInst.getMask(img.rows, img.cols, false);
             stackMask = stackMask || instMask;
+        }
+
+        // Render Boxes
+        for (const auto &inst : instVec) {
+            inst.renderToImg(displayImg);
         }
 
         // eigen -> opencv

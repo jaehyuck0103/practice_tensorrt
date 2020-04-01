@@ -43,12 +43,10 @@ Instance::Instance(const json &inputRow) {
      * ----------------------------------*/
     mDist = mCorners3D.topRows(2).colwise().norm().minCoeff();
 
-    /* -----------------------------------------------------------------*
-     * mYawDiff : 차량 뒷면을 바라보는 angle과 차량 yaw angle 간의 차이
-     * -----------------------------------------------------------------*/
-    const Eigen::Vector3f tailCenter = mCornersCam3D.leftCols(4).rowwise().mean();
-    const float viewAngleToRear = atan2(tailCenter(2), tailCenter(0));
-    mYawDiff = abs(angleDiff(viewAngleToRear, mYaw));
+    /* ----*
+     * ETC
+     * ----*/
+    mDisplayStr += std::to_string(mClassId) + " ";
 }
 
 bool Instance::isAnyCornersInImage(int imgH, int imgW) const {
@@ -117,6 +115,11 @@ void Instance::renderToImg(cv::Mat &img) const {
     };
 
     renderPairs(frontPairs, cv::Scalar{255, 0, 0});
+
+    // Render display string
+    const cv::Point strPos{static_cast<int>(mCorners2D(0, 0) + 0.5),
+                           static_cast<int>(mCorners2D(1, 0) + 0.5)};
+    cv::putText(img, mDisplayStr, strPos, cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 255), 2);
 }
 
 bool Instance::isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) const {
@@ -125,7 +128,12 @@ bool Instance::isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) con
         return false;
 
     // 2. tail과 view의 각도
-    if (mYawDiff > 0.25 * M_PI)
+    // yawDiff : 차량 뒷면을 바라보는 angle과 차량 yaw angle 간의 차이
+    const Eigen::Vector3f tailCenter = mCornersCam3D.leftCols(4).rowwise().mean();
+    const float viewAngleToTail = atan2(-tailCenter(0), tailCenter(2));
+    const float yawDiff = abs(angleDiff(viewAngleToTail, mYaw));
+    mDisplayStr += std::to_string(static_cast<int>(yawDiff * 180 / M_PI)) + " ";
+    if (yawDiff > 0.25 * M_PI)
         return false;
 
     // 3. tail corner가 모두 이미지 안에 있는지...
@@ -143,11 +151,13 @@ bool Instance::isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) con
     // 4. tail projection의 size가 충분히 큰지.
     const MatrixXXb tailMask = getMask(imgH, imgW, true);
     const int tailMaskSize = tailMask.count();
+    mDisplayStr += std::to_string(tailMaskSize) + " ";
     if (tailMaskSize < 50 * 50)
         return false;
 
     // 5. 전방의 물체에 가리진 않는지.
     const int intersection = (stackMask && tailMask).count();
+    mDisplayStr += std::to_string(intersection) + " ";
     if (static_cast<float>(intersection) / static_cast<float>(tailMaskSize) > 0.1)
         return false;
 

@@ -35,5 +35,6 @@ class Instance {
     Eigen::Matrix<float, 2, 8> mCorners2D;    // image coordinate
 
     float mDist;
-    float mYawDiff;
+
+    mutable std::string mDisplayStr = ""; // debuge용이므로 const에서도 수정 가능하도록.
 };
