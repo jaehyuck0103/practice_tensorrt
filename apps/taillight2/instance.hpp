@@ -19,6 +19,7 @@ class Instance {
 
     bool isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) const;
     MatrixXXb getMask(int imgH, int imgW, bool tailOnly) const;
+    cv::Rect getTailRect(int imgH, int imgW) const;
 
     // getter, setter
     float dist() const { return mDist; }

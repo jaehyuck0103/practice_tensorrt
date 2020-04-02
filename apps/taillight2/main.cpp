@@ -1,3 +1,4 @@
+#include "RegressInferAgent.hpp"
 #include "instance.hpp"
 #include <fstream>
 #include <iostream>
@@ -14,6 +15,16 @@ int main() {
     std::ifstream ifs{"scripts/json.json"};
     json j = json::parse(ifs);
     ifs.close();
+
+    // Initialize TRT
+    SampleParams params;
+    params.onnxFilePath =
+        "/home/jae/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/tail_det.onnx";
+    params.inputTensorName = "Input";
+    params.outputTensorName = "Output";
+
+    RegressInferAgent regressAgent(params);
+    regressAgent.build();
 
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
@@ -61,15 +72,41 @@ int main() {
             stackMask = stackMask || instMask;
         }
 
+        // mask: eigen -> opencv
+        cv::Mat displayMask{img.rows, img.cols, CV_8UC1, cv::Scalar(0)};
+        cv::eigen2cv(stackMask, displayMask);
+        displayMask *= 255;
+        cv::cvtColor(displayMask, displayMask, cv::COLOR_GRAY2BGR);
+
         // Render Boxes
         for (const auto &inst : instVec) {
             inst.renderToImg(displayImg);
         }
 
-        // eigen -> opencv
-        cv::Mat displayMask{img.rows, img.cols, CV_8UC1, cv::Scalar(0)};
-        cv::eigen2cv(stackMask, displayMask);
-        displayMask *= 255;
+        // tail crop image들을 모아서 tensorrt infer
+        std::vector<cv::Rect> rois;
+        std::vector<cv::Mat> croppedImgs;
+        for (auto &inst : tailValidVec) {
+            cv::Rect roi = inst.getTailRect(img.rows, img.cols);
+            rois.push_back(roi);
+            cv::Mat croppedImg = img(roi);
+            cv::resize(croppedImg, croppedImg, cv::Size{224, 224});
+            croppedImg.convertTo(croppedImg, CV_BGR2RGB);
+            croppedImg.convertTo(croppedImg, CV_32FC3);
+            croppedImg = ((croppedImg / 255.0f) - 0.5f) * 4.0f; // normalization
+            croppedImgs.push_back(croppedImg);
+        }
+        std::vector<std::array<float, 4>> regressCoords = regressAgent.infer(croppedImgs);
+
+        // visulaize regression result
+        for (size_t i = 0; i < rois.size(); ++i) {
+            cv::Rect regressedRoi{
+                static_cast<int>(rois[i].x + regressCoords[i][0] * rois[i].width),
+                static_cast<int>(rois[i].y + regressCoords[i][1] * rois[i].height),
+                static_cast<int>((regressCoords[i][2] - regressCoords[i][0]) * rois[i].width),
+                static_cast<int>((regressCoords[i][3] - regressCoords[i][1]) * rois[i].height)};
+            img(regressedRoi).copyTo(displayMask(regressedRoi));
+        }
 
         cv::imshow("img_display", displayImg);
         cv::imshow("mask_display", displayMask);

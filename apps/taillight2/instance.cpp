@@ -1,4 +1,5 @@
 #include "instance.hpp"
+#include <algorithm>
 #include <opencv2/core/eigen.hpp>
 
 Instance::Instance(const json &inputRow) {
@@ -128,12 +129,12 @@ bool Instance::isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) con
         return false;
 
     // 2. tail과 view의 각도
-    // yawDiff : 차량 뒷면을 바라보는 angle과 차량 yaw angle 간의 차이
+    // yawByView : 차량 뒷면을 바라보는 angle과 차량 yaw angle 간의 차이
     const Eigen::Vector3f tailCenter = mCornersCam3D.leftCols(4).rowwise().mean();
     const float viewAngleToTail = atan2(-tailCenter(0), tailCenter(2));
-    const float yawDiff = abs(angleDiff(viewAngleToTail, mYaw));
-    mDisplayStr += std::to_string(static_cast<int>(yawDiff * 180 / M_PI)) + " ";
-    if (yawDiff > 0.25 * M_PI)
+    const float yawByView = abs(angleDiff(viewAngleToTail, mYaw));
+    mDisplayStr += std::to_string(static_cast<int>(yawByView * 180 / M_PI)) + " ";
+    if (yawByView > 0.25 * M_PI)
         return false;
 
     // 3. tail corner가 모두 이미지 안에 있는지...
@@ -182,4 +183,24 @@ MatrixXXb Instance::getMask(int imgH, int imgW, bool tailOnly) const {
     MatrixXXb maskEigen;
     cv::cv2eigen(mask, maskEigen);
     return maskEigen;
+}
+
+cv::Rect Instance::getTailRect(int imgH, int imgW) const {
+    const Eigen::Matrix<float, 2, 4> tailCorners2D = mCorners2D.leftCols(4);
+    const Eigen::Matrix<float, 1, 4> tailCornersU = tailCorners2D.row(0);
+    const Eigen::Matrix<float, 1, 4> tailCornersV = tailCorners2D.row(1);
+
+    const float minU = tailCornersU.minCoeff();
+    const float maxU = tailCornersU.maxCoeff();
+    const float minV = tailCornersV.minCoeff();
+    const float maxV = tailCornersV.maxCoeff();
+    const float padW = (maxU - minU) / 2;
+    const float padH = (maxV - minV) / 2;
+
+    const int minU_int = std::max(static_cast<int>(minU - padW + 0.5), 0);
+    const int maxU_int = std::min(static_cast<int>(maxU + padW + 0.5), imgW - 1);
+    const int minV_int = std::max(static_cast<int>(minV - padH + 0.5), 0);
+    const int maxV_int = std::min(static_cast<int>(maxV + padH + 0.5), imgH - 1);
+
+    return cv::Rect{minU_int, minV_int, maxU_int - minU_int, maxV_int - minV_int};
 }
