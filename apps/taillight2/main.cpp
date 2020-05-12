@@ -26,6 +26,7 @@ int main() {
     RegressInferAgent regressAgent(params);
     regressAgent.build();
 
+    int tmpIdx = 0;
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
         imgFilePath = "/mnt/EVO_4TB/VoSS/20200316-174732(20191213-125018_emul)/" + imgFilePath;
@@ -108,9 +109,14 @@ int main() {
             img(regressedRoi).copyTo(displayMask(regressedRoi));
         }
 
+        /*
         cv::imshow("img_display", displayImg);
         cv::imshow("mask_display", displayMask);
         if (cv::waitKey() == 'q')
             break;
+        */
+        cv::imwrite("Debug/" + std::to_string(tmpIdx) + "img.png", displayImg);
+        cv::imwrite("Debug/" + std::to_string(tmpIdx) + "mask.png", displayMask);
+        tmpIdx += 1;
     }
 }
