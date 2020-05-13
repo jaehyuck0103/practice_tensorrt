@@ -47,7 +47,7 @@ Instance::Instance(const json &inputRow) {
     /* ----*
      * ETC
      * ----*/
-    mDisplayStr += std::to_string(mClassId) + " ";
+    mDisplayStr += std::to_string(mClassId) + "(" + std::to_string(mTrackId) + ") ";
 }
 
 bool Instance::isAnyCornersInImage(int imgH, int imgW) const {

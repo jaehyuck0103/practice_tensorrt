@@ -18,13 +18,12 @@ int main() {
 
     // Initialize TRT
     SampleParams params;
-    params.onnxFilePath =
-        "/home/jae/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/tail_det.onnx";
+    params.trtFilePath =
+        "/home/jae/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/tail_det.trt";
     params.inputTensorName = "Input";
     params.outputTensorName = "Output";
 
     RegressInferAgent regressAgent(params);
-    regressAgent.build();
 
     int tmpIdx = 0;
     for (const auto &eachFrame : j) {
@@ -40,9 +39,7 @@ int main() {
             int classId = eachObj[0].get<int>();
             float centerX = eachObj[2].get<float>();
             float centerY = eachObj[3].get<float>();
-            if (classId == 2) {
-                continue;
-            }
+            // if (classId == 2) { continue; }
             if (centerX < 4 || centerX > 40 || abs(centerY) > 10) {
                 continue;
             }
@@ -109,14 +106,14 @@ int main() {
             img(regressedRoi).copyTo(displayMask(regressedRoi));
         }
 
-        /*
         cv::imshow("img_display", displayImg);
         cv::imshow("mask_display", displayMask);
         if (cv::waitKey() == 'q')
             break;
-        */
+        /*
         cv::imwrite("Debug/" + std::to_string(tmpIdx) + "img.png", displayImg);
         cv::imwrite("Debug/" + std::to_string(tmpIdx) + "mask.png", displayMask);
         tmpIdx += 1;
+        */
     }
 }

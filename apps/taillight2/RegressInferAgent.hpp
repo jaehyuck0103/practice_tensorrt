@@ -18,15 +18,15 @@
 struct SampleParams {
     std::string inputTensorName;
     std::string outputTensorName;
-    std::string onnxFilePath;
+    std::string trtFilePath;
 };
 
 class RegressInferAgent {
 
   public:
-    RegressInferAgent(const SampleParams &params) : mParams(params) {}
+    RegressInferAgent(const SampleParams &params) : mParams(params) { loadEngine(); }
 
-    void build();
+    void loadEngine();
     std::vector<std::array<float, 4>> infer(const std::vector<cv::Mat> &croppedImgs);
 
   private:
@@ -37,30 +37,28 @@ class RegressInferAgent {
     UniquePtrTRT<nvinfer1::IExecutionContext> mContext{nullptr};
 };
 
-void RegressInferAgent::build() {
-    // ----------------------------
-    // Create builder and network
-    // ----------------------------
-    auto builder = UniquePtrTRT<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger));
-    const auto explicitBatch =
-        1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network =
-        UniquePtrTRT<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+void RegressInferAgent::loadEngine() {
+    std::ifstream engineFile(mParams.trtFilePath, std::ios::binary);
+    if (engineFile.fail()) {
+        std::cout << "Error opening TRT file." << std::endl;
+        exit(1);
+    }
 
-    // -------------------
-    // Create ONNX parser
-    // -------------------
-    auto parser =
-        UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile(mParams.onnxFilePath.c_str(),
-                          static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
+    engineFile.seekg(0, engineFile.end);
+    long int fsize = engineFile.tellg();
+    engineFile.seekg(0, engineFile.beg);
 
-    // -------------
-    // Build engine
-    // -------------
-    auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    std::vector<char> engineData(fsize);
+    engineFile.read(engineData.data(), fsize);
+    if (engineFile.fail()) {
+        std::cout << "Error reading TRT file." << std::endl;
+        exit(1);
+    }
+
+    UniquePtrTRT<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(gLogger)};
+    // if (DLACore != -1) { runtime->setDLACore(DLACore); }
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), InferDeleter());
+        runtime->deserializeCudaEngine(engineData.data(), fsize, nullptr), InferDeleter());
 
     // -----------------------
     // Create buffer manager
