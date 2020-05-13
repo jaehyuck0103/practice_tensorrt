@@ -68,8 +68,6 @@ void build(const SampleParams &params) {
 }
 
 int main() {
-    // std::vector<std::string> arguments(argv, argv + argc);
-
     // Get Onnx lists
     std::ifstream f("./InputOnnxList.txt");
     std::string line;

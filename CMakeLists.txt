@@ -60,7 +60,12 @@ add_custom_target(run4
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight2  # ${CMAKE_PROJECT_DIR}
     )
 
+add_custom_target(run4_imwrite
+    COMMAND main4 --imwrite
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight2  # ${CMAKE_PROJECT_DIR}
+    )
+
 add_custom_target(run5
-    COMMAND main5 abcd
+    COMMAND main5
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/apps/BuildOnly  # ${CMAKE_PROJECT_DIR}
     )

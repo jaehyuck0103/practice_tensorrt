@@ -10,7 +10,13 @@
 
 using json = nlohmann::json;
 
-int main() {
+int main(int argc, char **argv) {
+    std::vector<std::string> arguments(argv + 1, argv + argc);
+    bool bImWrite = false;
+    if (arguments.size() > 0 && arguments[0] == "--imwrite") {
+        bImWrite = true;
+    }
+
     // Read Json file
     std::ifstream ifs{"scripts/json.json"};
     json j = json::parse(ifs);
@@ -25,7 +31,7 @@ int main() {
 
     RegressInferAgent regressAgent(params);
 
-    int tmpIdx = 0;
+    int frameIdx = 0;
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
         imgFilePath = "/mnt/EVO_4TB/VoSS/20200316-174732(20191213-125018_emul)/" + imgFilePath;
@@ -106,14 +112,15 @@ int main() {
             img(regressedRoi).copyTo(displayMask(regressedRoi));
         }
 
-        cv::imshow("img_display", displayImg);
-        cv::imshow("mask_display", displayMask);
-        if (cv::waitKey() == 'q')
-            break;
-        /*
-        cv::imwrite("Debug/" + std::to_string(tmpIdx) + "img.png", displayImg);
-        cv::imwrite("Debug/" + std::to_string(tmpIdx) + "mask.png", displayMask);
-        tmpIdx += 1;
-        */
+        if (bImWrite) {
+            cv::imwrite("Debug/" + std::to_string(frameIdx) + "img.png", displayImg);
+            cv::imwrite("Debug/" + std::to_string(frameIdx) + "mask.png", displayMask);
+            frameIdx += 1;
+        } else {
+            cv::imshow("img_display", displayImg);
+            cv::imshow("mask_display", displayMask);
+            if (cv::waitKey() == 'q')
+                break;
+        }
     }
 }
