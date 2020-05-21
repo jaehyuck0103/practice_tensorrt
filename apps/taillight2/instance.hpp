@@ -23,6 +23,7 @@ class Instance {
 
     // getter, setter
     float dist() const { return mDist; }
+    int trackId() const { return mTrackId; }
 
   private:
     int mClassId;

@@ -37,6 +37,8 @@ int main(int argc, char **argv) {
         "/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_unet.trt";
     UNetInferAgent unetAgent(params);
 
+    SimpleTracker simpleTracker;
+
     int frameIdx = 0;
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
@@ -136,7 +138,12 @@ int main(int argc, char **argv) {
         // unet inferece
         std::vector<std::vector<float>> encodedImgs = unetAgent.infer(regressedImgs);
 
-        // Infer
+        // Tracker Update
+        std::list<TrackerInput> trackerInputs;
+        for (size_t i = 0; i < encodedImgs.size(); ++i) {
+            trackerInputs.push_back(TrackerInput{validTailInsts[i].trackId(), encodedImgs[i]});
+        }
+        simpleTracker.update(trackerInputs);
 
         // Display
         if (bImWrite) {
