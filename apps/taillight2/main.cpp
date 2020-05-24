@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
         imgFilePath = "/mnt/EVO_4TB/VoSS/20200316-174732(20191213-125018_emul)/" + imgFilePath;
-        std::cout << imgFilePath << std::endl;
+        std::cout << frameIdx << ": " << imgFilePath << std::endl;
         cv::Mat img = cv::imread(imgFilePath);
         cv::Mat displayedImg = img.clone();
 
@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
             croppedRois.push_back(roi);
             cv::Mat croppedImg = img(roi);
             cv::resize(croppedImg, croppedImg, cv::Size{224, 224});
-            croppedImg.convertTo(croppedImg, CV_BGR2RGB);
+            cv::cvtColor(croppedImg, croppedImg, cv::COLOR_BGR2RGB);
             croppedImg.convertTo(croppedImg, CV_32FC3);
             croppedImg = ((croppedImg / 255.0f) - 0.5f) * 4.0f; // normalization
             croppedImgs.push_back(croppedImg);
@@ -130,7 +130,12 @@ int main(int argc, char **argv) {
         for (size_t i = 0; i < regressedRois.size(); ++i) {
             cv::Mat regressedImg;
             cv::resize(img(regressedRois[i]), regressedImg, cv::Size{112, 112});
-            regressedImg.convertTo(regressedImg, CV_BGR2RGB);
+            cv::imshow("test", regressedImg);
+            cv::imwrite("Debug2/" + std::to_string(frameIdx) + "_" + std::to_string(i) + ".png",
+                        regressedImg);
+            cv::waitKey();
+
+            cv::cvtColor(regressedImg, regressedImg, cv::COLOR_BGR2RGB);
             regressedImg.convertTo(regressedImg, CV_32FC3);
             regressedImg = ((regressedImg / 255.0f) - 0.5f) * 4.0f; // normalization
             regressedImgs.push_back(regressedImg);
@@ -149,12 +154,12 @@ int main(int argc, char **argv) {
         if (bImWrite) {
             cv::imwrite("Debug/" + std::to_string(frameIdx) + "img.png", displayedImg);
             cv::imwrite("Debug/" + std::to_string(frameIdx) + "mask.png", displayedMask);
-            frameIdx += 1;
         } else {
             cv::imshow("img_display", displayedImg);
             cv::imshow("mask_display", displayedMask);
             if (cv::waitKey() == 'q')
                 break;
         }
+        frameIdx += 1;
     }
 }
