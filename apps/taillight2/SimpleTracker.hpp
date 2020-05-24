@@ -6,6 +6,8 @@
 #include <numeric>
 #include <vector>
 
+#include "infer-agents/CNN3DInferAgent.hpp"
+
 struct TrackerInput {
     int trackId;
     std::vector<float> encodedTail;
@@ -58,12 +60,54 @@ class TrackedInst {
         return sum == 0 ? true : false;
     }
 
+    bool canInfered() const {
+        // 1. Check first_detect
+        size_t first_detect;
+        for (first_detect = 0; first_detect < mbDetected.size(); ++first_detect) {
+            if (mbDetected[first_detect]) {
+                break;
+            }
+        }
+        if (first_detect > 8) {
+            return false;
+        }
+        // 2. Check sum_latest8
+        const int sum_latest8 = std::accumulate(mbDetected.end() - 8, mbDetected.end(), 0);
+        if (sum_latest8 < 6) {
+            return false;
+        }
+        // 3. Check sum
+        const int sum = std::accumulate(mbDetected.begin(), mbDetected.end(), 0);
+        if (sum < 8) {
+            return false;
+        }
+
+        return true;
+    }
+
     void printDetected() const {
         std::cout << trackId() << "   ";
         for (const auto &elem : mbDetected) {
             std::cout << elem << " ";
         }
         std::cout << std::endl;
+    }
+
+    std::vector<float> getConcatedFeats() const {
+        const size_t inputSize = mEncodedImgs[0].size() * mEncodedImgs.size();
+
+        std::vector<float> concat;
+        concat.reserve(inputSize);
+        for (const auto &elem : mEncodedImgs) {
+            concat.insert(concat.end(), elem.begin(), elem.end());
+        }
+
+        if (concat.size() != 16 * 64 * 28 * 28) {
+            std::cout << "Concat Size Error" << std::endl;
+            exit(1);
+        }
+
+        return concat;
     }
 
     // getters, setters
@@ -80,12 +124,22 @@ class TrackedInst {
 class SimpleTracker {
 
   public:
-    // SimpleTracker() {}
+    SimpleTracker() {
+        const std::string homeDir = std::getenv("HOME");
+        InferenceParams params;
+
+        params.trtFilePath =
+            homeDir +
+            "/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_3Dconv.trt";
+        mInferAgent = std::make_unique<CNN3DInferAgent>(params);
+    }
 
     void update(std::list<TrackerInput> &input);
 
   private:
     std::list<TrackedInst> mTrackedInsts;
+    void infer();
+    std::unique_ptr<CNN3DInferAgent> mInferAgent;
 };
 
 void SimpleTracker::update(std::list<TrackerInput> &inputs) {
@@ -106,4 +160,18 @@ void SimpleTracker::update(std::list<TrackerInput> &inputs) {
     for (const auto &elem : mTrackedInsts) {
         elem.printDetected();
     }
+
+    infer();
+}
+
+void SimpleTracker::infer() {
+    std::list<std::vector<float>> inputFeats;
+    std::vector<int> inferredTrackIds;
+    for (const auto &elem : mTrackedInsts) {
+        if (elem.canInfered()) {
+            inputFeats.push_back(elem.getConcatedFeats());
+            inferredTrackIds.push_back(elem.trackId());
+        }
+    }
+    mInferAgent->infer(inputFeats);
 }
