@@ -6,13 +6,13 @@ class CNN3DInferAgent : public BaseInferAgent {
 
   public:
     CNN3DInferAgent(const InferenceParams &params) : BaseInferAgent(params) {}
-    std::vector<float> infer(const std::list<std::vector<float>> &encodedTails);
+    std::vector<int> infer(const std::list<std::vector<float>> &encodedTails);
 
   private:
 };
 
-std::vector<float> CNN3DInferAgent::infer(const std::list<std::vector<float>> &encodedTailSeqs) {
-    std::vector<float> result;
+std::vector<int> CNN3DInferAgent::infer(const std::list<std::vector<float>> &encodedTailSeqs) {
+    std::vector<int> result;
     if (encodedTailSeqs.empty()) {
         return result;
     }

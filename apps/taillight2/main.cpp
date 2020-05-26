@@ -39,6 +39,9 @@ int main(int argc, char **argv) {
 
     SimpleTracker simpleTracker;
 
+    // Result json
+    json jsonResult = json::array();
+
     int frameIdx = 0;
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
@@ -133,7 +136,7 @@ int main(int argc, char **argv) {
             cv::imshow("test", regressedImg);
             cv::imwrite("Debug2/" + std::to_string(frameIdx) + "_" + std::to_string(i) + ".png",
                         regressedImg);
-            cv::waitKey();
+            // cv::waitKey();
 
             cv::cvtColor(regressedImg, regressedImg, cv::COLOR_BGR2RGB);
             regressedImg.convertTo(regressedImg, CV_32FC3);
@@ -149,6 +152,21 @@ int main(int argc, char **argv) {
             trackerInputs.push_back(TrackerInput{validTailInsts[i].trackId(), encodedImgs[i]});
         }
         simpleTracker.update(trackerInputs);
+        auto [inferredTrackIds, inferredStates] = simpleTracker.infer();
+
+        //
+        json jsonInferStates = json::object();
+        for (size_t i = 0; i < inferredTrackIds.size(); ++i) {
+            jsonInferStates[std::to_string(inferredTrackIds.at(i))] = inferredStates.at(i);
+        }
+
+        json jsonRois = json::object();
+        for (size_t i = 0; i < regressedRois.size(); ++i) {
+            jsonRois[std::to_string(validTailInsts[i].trackId())] = {
+                regressedRois[i].x, regressedRois[i].y, regressedRois[i].width,
+                regressedRois[i].height};
+        }
+        jsonResult.push_back({{"result", jsonInferStates}, {"bbox", jsonRois}});
 
         // Display
         if (bImWrite) {
@@ -162,4 +180,8 @@ int main(int argc, char **argv) {
         }
         frameIdx += 1;
     }
+
+    std::ofstream ofs{"Debug/result.json"};
+    ofs << std::setw(4) << jsonResult << std::endl;
+    ofs.close();
 }

@@ -135,10 +135,10 @@ class SimpleTracker {
     }
 
     void update(std::list<TrackerInput> &input);
+    std::tuple<std::vector<int>, std::vector<int>> infer();
 
   private:
     std::list<TrackedInst> mTrackedInsts;
-    void infer();
     std::unique_ptr<CNN3DInferAgent> mInferAgent;
 };
 
@@ -160,11 +160,9 @@ void SimpleTracker::update(std::list<TrackerInput> &inputs) {
     for (const auto &elem : mTrackedInsts) {
         elem.printDetected();
     }
-
-    infer();
 }
 
-void SimpleTracker::infer() {
+std::tuple<std::vector<int>, std::vector<int>> SimpleTracker::infer() {
     std::list<std::vector<float>> inputFeats;
     std::vector<int> inferredTrackIds;
     for (const auto &elem : mTrackedInsts) {
@@ -173,5 +171,11 @@ void SimpleTracker::infer() {
             inferredTrackIds.push_back(elem.trackId());
         }
     }
-    mInferAgent->infer(inputFeats);
+    std::vector<int> inferredStates = mInferAgent->infer(inputFeats);
+
+    if (inferredTrackIds.size() != inferredStates.size()) {
+        std::cout << "inferredTrackIds and inferredStates should have same size" << std::endl;
+        exit(1);
+    }
+    return {inferredTrackIds, inferredStates};
 }
