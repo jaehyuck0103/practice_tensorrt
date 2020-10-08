@@ -68,12 +68,19 @@ void build(const SampleParams &params) {
 }
 
 int main() {
+
     // Get Onnx lists
+    const std::string homeDir = std::getenv("HOME");
     std::ifstream f("./InputOnnxList.txt");
     std::string line;
     std::vector<std::string> lines;
     while (std::getline(f, line)) {
+        if (line.rfind("~", 0) == 0) {
+            line = homeDir + line.substr(1);
+        }
+
         lines.push_back(line);
+        std::cout << line << std::endl;
     }
 
     // Build each onnx

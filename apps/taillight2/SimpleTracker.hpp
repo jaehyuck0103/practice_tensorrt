@@ -130,7 +130,7 @@ class SimpleTracker {
 
         params.trtFilePath =
             homeDir +
-            "/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_3Dconv.trt";
+            "/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_3Dconv.trt";
         mInferAgent = std::make_unique<CNN3DInferAgent>(params);
     }
 

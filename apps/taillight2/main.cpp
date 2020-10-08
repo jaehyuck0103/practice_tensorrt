@@ -29,12 +29,11 @@ int main(int argc, char **argv) {
     InferenceParams params;
 
     params.trtFilePath =
-        homeDir + "/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/tail_det.trt";
+        homeDir + "/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/tail_det.trt";
     RegressInferAgent regressAgent(params);
 
     params.trtFilePath =
-        homeDir +
-        "/extern/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_unet.trt";
+        homeDir + "/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_unet.trt";
     UNetInferAgent unetAgent(params);
 
     SimpleTracker simpleTracker;
@@ -45,7 +44,7 @@ int main(int argc, char **argv) {
     int frameIdx = 0;
     for (const auto &eachFrame : j) {
         std::string imgFilePath = eachFrame["img_file"].get<std::string>();
-        imgFilePath = "/mnt/EVO_4TB/VoSS/20200316-174732(20191213-125018_emul)/" + imgFilePath;
+        imgFilePath = "/mnt/SATA01/VoSS/20200316-174732(20191213-125018_emul)/" + imgFilePath;
         std::cout << frameIdx << ": " << imgFilePath << std::endl;
         cv::Mat img = cv::imread(imgFilePath);
         cv::Mat displayedImg = img.clone();

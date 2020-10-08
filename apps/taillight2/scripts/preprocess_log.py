@@ -2,9 +2,10 @@ import json
 import os
 
 import numpy as np
+
 import pandas as pd
 
-VOSS_PROJECT_PATH = "/mnt/EVO_4TB/VoSS/20200316-174732(20191213-125018_emul)"
+VOSS_PROJECT_PATH = "/mnt/SATA01/VoSS/20200316-174732(20191213-125018_emul)"
 CAMERA_LOG_PATH = os.path.join(VOSS_PROJECT_PATH, "cameras00.csv")
 TRACKING_LOG_PATH = os.path.join(VOSS_PROJECT_PATH, "L-DET-RES.log")
 

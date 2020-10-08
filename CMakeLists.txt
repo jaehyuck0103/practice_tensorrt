@@ -12,16 +12,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")  # -Werror
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED PATHS $ENV{HOME}/Util/opencv/build)
 
 include_directories(/usr/local/cuda/include)
-include_directories($ENV{HOME}/Util/TensorRT-7.0.0.11/include)
+include_directories($ENV{HOME}/Util/TensorRT-7.1.3.4/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(third_party/eigen-3.3.7)
-include_directories(third_party/nlohmann_json-3.7.3/include)
+include_directories(third_party/eigen-3.3.8)
+include_directories(third_party/nlohmann_json-3.9.1/include)
 
 link_directories(/usr/local/cuda/lib64)
-link_directories($ENV{HOME}/Util/TensorRT-7.0.0.11/lib)
+link_directories($ENV{HOME}/Util/TensorRT-7.1.3.4/lib)
 
 add_executable(main1 apps/OnnxMNIST/sampleOnnx.cpp)
 target_link_libraries(main1 cudart nvinfer nvonnxparser) 
