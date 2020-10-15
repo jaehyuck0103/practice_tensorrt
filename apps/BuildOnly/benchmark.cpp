@@ -56,16 +56,26 @@ void benchmark(const std::string &trtFilePath) {
     // ------------
     // Run dummy
     // ------------
+
+    // Put dummy inputs (Host -> Device)
+    for (int idx = 0; idx < engine->getNbBindings(); idx++) {
+        if (engine->bindingIsInput(idx)) {
+            int vol = volume(engine->getBindingDimensions(idx));
+            std::vector<float> hostInBuffer(vol, 0.0);
+            for (int bufIdx = 0; bufIdx < vol; ++bufIdx) {
+                if (bufIdx % 2 == 0) {
+                    hostInBuffer[bufIdx] = 1.0;
+                } else {
+                    hostInBuffer[bufIdx] = -1.0;
+                }
+            }
+            bufManager->memcpy(true, engine->getBindingName(idx), hostInBuffer.data());
+        }
+    }
+
+    // Iterate Iteration
     for (int iter = 0; iter < 100; ++iter) {
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        // Put dummy inputs (Host -> Device)
-        for (int idx = 0; idx < engine->getNbBindings(); idx++) {
-            if (engine->bindingIsInput(idx)) {
-                int vol = volume(engine->getBindingDimensions(idx));
-                std::vector<float> hostInBuffer(vol, 0.1);
-                bufManager->memcpy(true, engine->getBindingName(idx), hostInBuffer.data());
-            }
-        }
         // Execute
         std::vector<void *> buffers = bufManager->getDeviceBindings();
         context->executeV2(buffers.data());
@@ -104,11 +114,12 @@ int main() {
         line = fs::path{line}.replace_extension(".trt");
 
         lines.push_back(line);
-        std::cout << line << std::endl;
     }
 
     // Build each onnx
     for (const auto &elem : lines) {
+        std::cout << std::endl << std::endl << std::endl << std::endl;
+        std::cout << elem << std::endl << std::endl;
         benchmark(elem);
     }
     std::cout << std::endl << std::endl << std::endl << std::endl;

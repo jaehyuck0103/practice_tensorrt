@@ -14,7 +14,7 @@ namespace fs = std::experimental::filesystem;
 
 struct SampleParams {
     bool int8{false}; //!< Allow runnning the network in Int8 mode.
-    bool fp16{false}; //!< Allow running the network in FP16 mode.
+    bool fp16{true};  //!< Allow running the network in FP16 mode.
     std::string onnxFilePath;
     std::string engineFilePath;
 };
@@ -42,9 +42,11 @@ void build(const SampleParams &params) {
     // -------------
     auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     config->setMaxWorkspaceSize(1 << 30);
+    if (params.fp16) {
+        config->setFlag(nvinfer1::BuilderFlag::kFP16);
+    }
     /*
     builder->setMaxBatchSize(params.batchSize);
-    if (params.fp16) { config->setFlag(nvinfer1::BuilderFlag::kFP16); }
     if (params.int8)
     {
         config->setFlag(nvinfer1::BuilderFlag::kINT8);
