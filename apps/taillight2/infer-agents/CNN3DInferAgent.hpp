@@ -1,60 +1,52 @@
 #pragma once
+#include "../common.hpp"
 #include "BaseInferAgent.hpp"
 #include <list>
 
 class CNN3DInferAgent : public BaseInferAgent {
 
   public:
-    CNN3DInferAgent(const InferenceParams &params) : BaseInferAgent(params) {}
+    CNN3DInferAgent(const InferenceParams &params);
     std::vector<int> infer(const std::list<std::vector<float>> &encodedTails);
 
   private:
 };
+
+CNN3DInferAgent::CNN3DInferAgent(const InferenceParams &params) : BaseInferAgent(params) {
+    // ------------
+    // Check Dims
+    // ------------
+    const int inputTensorIdx = mEngine->getBindingIndex(mParams.inputTensorName.c_str());
+    const nvinfer1::Dims inDims = mEngine->getBindingDimensions(inputTensorIdx);
+    checkDims(inDims, CNN3DCfg::inDims);
+
+    const int outputTensorIdx = mEngine->getBindingIndex(mParams.outputTensorName.c_str());
+    const nvinfer1::Dims outDims = mEngine->getBindingDimensions(outputTensorIdx);
+    checkDims(outDims, CNN3DCfg::outDims);
+}
 
 std::vector<int> CNN3DInferAgent::infer(const std::list<std::vector<float>> &encodedTailSeqs) {
     std::vector<int> result;
     if (encodedTailSeqs.empty()) {
         return result;
     }
-    // ------------
-    // Check Dims
-    // ------------
-    const int inputTensorIdx = mEngine->getBindingIndex(mParams.inputTensorName.c_str());
-    const int maxB = mEngine->getBindingDimensions(inputTensorIdx).d[0];     // 8
-    const int inSeqLen = mEngine->getBindingDimensions(inputTensorIdx).d[1]; // 16
-    const int inC = mEngine->getBindingDimensions(inputTensorIdx).d[2];      // 64
-    const int inH = mEngine->getBindingDimensions(inputTensorIdx).d[3];      // 28
-    const int inW = mEngine->getBindingDimensions(inputTensorIdx).d[4];      // 28
 
-    const int outputTensorIdx = mEngine->getBindingIndex(mParams.outputTensorName.c_str());
-    const int outMaxB = mEngine->getBindingDimensions(outputTensorIdx).d[0]; // 8
-    const int outC = mEngine->getBindingDimensions(outputTensorIdx).d[1];    // 8
-
-    if (maxB != 8 || inSeqLen != 16 || inC != 64 || inH != 28 || inW != 28) {
-        std::cout << "Improper input tensor size1" << std::endl;
-        exit(1);
-    }
-    if (outMaxB != 8 || outC != 1) {
-        std::cout << "Improper input tensor size2" << std::endl;
-        exit(1);
-    }
-
-    const int realB = std::min(static_cast<int>(encodedTailSeqs.size()), maxB);
+    const int realB = std::min(static_cast<int>(encodedTailSeqs.size()), CNN3DCfg::inB);
 
     // -------------------
     // Prepare Input Data
     // -------------------
     std::vector<float> hostInBuffer;
-    hostInBuffer.reserve(maxB * inSeqLen * inC * inH * inW);
+    hostInBuffer.reserve(CNN3DCfg::inNumEl);
     for (const auto &elem : encodedTailSeqs) {
-        if (int(elem.size()) != inSeqLen * inC * inH * inW) {
+        if (int(elem.size()) != (CNN3DCfg::inNumEl / CNN3DCfg::inB)) {
             std::cout << "Invalid Input Feature Size" << std::endl;
             exit(1);
         }
 
         hostInBuffer.insert(hostInBuffer.end(), elem.begin(), elem.end());
     }
-    hostInBuffer.resize(maxB * inSeqLen * inC * inH * inW, 0.0f);
+    hostInBuffer.resize(CNN3DCfg::inNumEl, 0.0f);
 
     // ----------------------
     // Copy (Host -> Device)
@@ -70,18 +62,12 @@ std::vector<int> CNN3DInferAgent::infer(const std::list<std::vector<float>> &enc
     // ----------------------
     // Copy (Device -> Host)
     // ----------------------
-    std::vector<int> hostOutBuffer(outMaxB * outC);
+    std::vector<int> hostOutBuffer(CNN3DCfg::outNumEl);
     mBufManager->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
 
     std::cout << "result" << std::endl;
     for (int i = 0; i < realB; ++i) {
-        std::cout << hostOutBuffer[i];
-        /*
-        for (int j = 0; j < outC; ++j) {
-            std::cout << hostOutBuffer[i * 8 + j] << " ";
-        }
-        */
-        std::cout << std::endl;
+        std::cout << hostOutBuffer[i] << std::endl;
         result.emplace_back(hostOutBuffer[i]);
     }
 

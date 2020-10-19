@@ -13,6 +13,22 @@ struct InferenceParams {
     std::string trtFilePath;
 };
 
+void checkDims(const nvinfer1::Dims &dims, std::vector<int> targetDims) {
+
+    if (dims.nbDims != static_cast<int>(targetDims.size())) {
+        std::cout << "Improper nbDims" << std::endl;
+        exit(1);
+    }
+
+    for (int i = 0; i < dims.nbDims; ++i) {
+        if (dims.d[i] != targetDims[i]) {
+            std::cout << "Improper input tensor size" << std::endl;
+            std::cout << dims.d[i] << " (expected " << targetDims[i] << ")" << std::endl;
+            exit(1);
+        }
+    }
+}
+
 class BaseInferAgent {
 
   public:
