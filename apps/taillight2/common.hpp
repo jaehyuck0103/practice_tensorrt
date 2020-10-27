@@ -80,3 +80,5 @@ inline const std::vector<int> outDims = {outB, outC};
 inline const int outNumEl =
     std::accumulate(outDims.begin(), outDims.end(), 1, std::multiplies<>());
 } // namespace CNN3DCfg
+
+constexpr int ENCODED_TAIL_SIZE = UNetCfg::outC * UNetCfg::outH * UNetCfg::outW;

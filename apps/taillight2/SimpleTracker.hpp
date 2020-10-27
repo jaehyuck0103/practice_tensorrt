@@ -102,7 +102,7 @@ class TrackedInst {
             concat.insert(concat.end(), elem.begin(), elem.end());
         }
 
-        if (concat.size() != 16 * 64 * 28 * 28) {
+        if (concat.size() != kLenSeq * kEncodedSize) {
             std::cout << "Concat Size Error" << std::endl;
             exit(1);
         }
@@ -117,8 +117,8 @@ class TrackedInst {
     std::deque<std::vector<float>> mEncodedImgs;
     std::deque<bool> mbDetected;
     const int mTrackId;
-    static constexpr int kLenSeq = 16;
-    static constexpr int kEncodedSize = 64 * 28 * 28;
+    static constexpr int kLenSeq = CNN3DCfg::inSeqLen;
+    static constexpr int kEncodedSize = ENCODED_TAIL_SIZE;
 };
 
 class SimpleTracker {

@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
             cv::Rect roi = inst.getTailRect(img.rows, img.cols);
             croppedRois.push_back(roi);
             cv::Mat croppedImg = img(roi);
-            cv::resize(croppedImg, croppedImg, cv::Size{224, 224});
+            cv::resize(croppedImg, croppedImg, cv::Size{RegCfg::inW, RegCfg::inH});
             cv::cvtColor(croppedImg, croppedImg, cv::COLOR_BGR2RGB);
             croppedImg.convertTo(croppedImg, CV_32FC3);
             croppedImg = croppedImg / 255.0f; // (0~255) -> (0~1)
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
         std::vector<cv::Mat> regressedImgs;
         for (size_t i = 0; i < regressedRois.size(); ++i) {
             cv::Mat regressedImg;
-            cv::resize(img(regressedRois[i]), regressedImg, cv::Size{112, 112});
+            cv::resize(img(regressedRois[i]), regressedImg, cv::Size{UNetCfg::inW, UNetCfg::inH});
             cv::imshow("test", regressedImg);
             cv::imwrite("Debug2/" + std::to_string(frameIdx) + "_" + std::to_string(i) + ".png",
                         regressedImg);
