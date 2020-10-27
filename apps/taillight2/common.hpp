@@ -20,10 +20,10 @@ constexpr int batchSize = 8;
 
 namespace RegCfg {
 constexpr int inB = Cfg::batchSize;
-constexpr int inC = 3;
 constexpr int inH = 224;
 constexpr int inW = 224;
-inline const std::vector<int> inDims = {inB, inC, inH, inW};
+constexpr int inC = 3;
+inline const std::vector<int> inDims = {inB, inH, inW, inC};
 inline const int inNumEl = std::accumulate(inDims.begin(), inDims.end(), 1, std::multiplies<>());
 
 constexpr int outB = Cfg::batchSize;
@@ -36,10 +36,10 @@ inline const int outNumEl =
 namespace UNetCfg {
 constexpr int inB = Cfg::batchSize;
 constexpr int inSeqLen = 1;
-constexpr int inC = 3;
 constexpr int inH = 112;
 constexpr int inW = 112;
-inline const std::vector<int> inDims = {inB, inSeqLen, inC, inH, inW};
+constexpr int inC = 3;
+inline const std::vector<int> inDims = {inB, inSeqLen, inH, inW, inC};
 inline const int inNumEl = std::accumulate(inDims.begin(), inDims.end(), 1, std::multiplies<>());
 
 constexpr int outB = Cfg::batchSize;

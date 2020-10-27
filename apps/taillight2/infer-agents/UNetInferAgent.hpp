@@ -34,19 +34,26 @@ std::vector<std::vector<float>> UNetInferAgent::infer(const std::vector<cv::Mat>
     // -------------------
     // Prepare Input Data
     // -------------------
-    std::vector<float> hostInBuffer(UNetCfg::inNumEl);
+    std::vector<float> hostInBuffer;
+    hostInBuffer.reserve(UNetCfg::inNumEl);
     const int realB = std::min(static_cast<int>(croppedImgs.size()), UNetCfg::inB);
-    int idx = 0;
-    for (int b = 0; b < realB; ++b) {
-        for (int c = 0; c < UNetCfg::inC; ++c) {
-            for (int h = 0; h < UNetCfg::inH; ++h) {
-                for (int w = 0; w < UNetCfg::inW; ++w) {
-                    hostInBuffer[idx] = croppedImgs[b].at<cv::Vec3f>(h, w)[c];
-                    idx += 1;
-                }
-            }
+    for (int i = 0; i < realB; ++i) {
+        if (!croppedImgs[i].isContinuous()) {
+            std::cout << "Image is not continuous" << std::endl;
+            exit(1);
         }
+        if (croppedImgs[i].type() != CV_32FC3) {
+            std::cout << "Invalid cv::Mat type" << std::endl;
+            exit(1);
+        }
+        if (int(croppedImgs[i].total()) != (UNetCfg::inH * UNetCfg::inW)) {
+            std::cout << "Invalid Input Feature Size" << std::endl;
+            exit(1);
+        }
+        hostInBuffer.insert(hostInBuffer.end(), (float *)(croppedImgs[i].datastart),
+                            (float *)(croppedImgs[i].dataend));
     }
+    hostInBuffer.resize(UNetCfg::inNumEl, 0.0f);
 
     // ----------------------
     // Copy (Host -> Device)

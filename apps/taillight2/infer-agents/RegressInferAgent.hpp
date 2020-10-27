@@ -33,26 +33,35 @@ RegressInferAgent::infer(const std::vector<cv::Mat> &croppedImgs) {
         return result;
     }
 
-    std::vector<float> hostInBuffer(RegCfg::inNumEl);
+    std::vector<float> hostInBuffer;
+    hostInBuffer.reserve(RegCfg::inNumEl);
     const int realB = std::min(static_cast<int>(croppedImgs.size()), RegCfg::inB);
-    /* memcpy 쓸까말까.... (쓰려면 network 시작을 BCHW -> BHWC로 바꿔줘야함)
-    const int numel = inC * inH * inW;
-    for (int i = 0; i < realBatch; ++i) {
-        std::memcpy(&(hostInBuffer[i * numel]), croppedImgs[i].data, numel * sizeof(float));
+    for (int i = 0; i < realB; ++i) {
+        if (!croppedImgs[i].isContinuous()) {
+            std::cout << "Image is not continuous" << std::endl;
+            exit(1);
+        }
+        if (croppedImgs[i].type() != CV_32FC3) {
+            std::cout << "Invalid cv::Mat type" << std::endl;
+            exit(1);
+        }
+        if (int(croppedImgs[i].total()) != (RegCfg::inH * RegCfg::inW)) {
+            std::cout << "Invalid Input Feature Size" << std::endl;
+            exit(1);
+        }
+        hostInBuffer.insert(hostInBuffer.end(), (float *)(croppedImgs[i].datastart),
+                            (float *)(croppedImgs[i].dataend));
+    }
+    hostInBuffer.resize(RegCfg::inNumEl, 0.0f);
+
+    // memcpy 버전
+    /*
+    const int eachNumel = RegCfg::inC * RegCfg::inH * RegCfg::inW;
+    for (int i = 0; i < realB; ++i) {
+        std::memcpy(&(hostInBuffer[i * eachNumel]), croppedImgs[i].data,
+                    eachNumel * sizeof(float));
     }
     */
-    // 일단 안전하게 복사
-    int idx = 0;
-    for (int b = 0; b < realB; ++b) {
-        for (int c = 0; c < RegCfg::inC; ++c) {
-            for (int h = 0; h < RegCfg::inH; ++h) {
-                for (int w = 0; w < RegCfg::inW; ++w) {
-                    hostInBuffer[idx] = croppedImgs[b].at<cv::Vec3f>(h, w)[c];
-                    idx += 1;
-                }
-            }
-        }
-    }
 
     // ----------------------
     // Copy (Host -> Device)

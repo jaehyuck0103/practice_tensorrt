@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
             cv::resize(croppedImg, croppedImg, cv::Size{224, 224});
             cv::cvtColor(croppedImg, croppedImg, cv::COLOR_BGR2RGB);
             croppedImg.convertTo(croppedImg, CV_32FC3);
-            croppedImg = ((croppedImg / 255.0f) - 0.5f) * 4.0f; // normalization
+            croppedImg = croppedImg / 255.0f; // (0~255) -> (0~1)
             croppedImgs.push_back(croppedImg);
         }
         std::vector<std::array<float, 4>> regressCoords = regressAgent.infer(croppedImgs);
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
 
             cv::cvtColor(regressedImg, regressedImg, cv::COLOR_BGR2RGB);
             regressedImg.convertTo(regressedImg, CV_32FC3);
-            regressedImg = ((regressedImg / 255.0f) - 0.5f) * 4.0f; // normalization
+            regressedImg = regressedImg / 255.0f; // (0~255) -> (0~1)
             regressedImgs.push_back(regressedImg);
         }
         // unet inferece
