@@ -33,8 +33,9 @@ Instance::Instance(const json &inputRow) {
     mCorners3D = transform * mCorners3D;
 
     // camera coordinates
-    mCornersCam3D =
-        (CalibParams::RTinv * mCorners3D.colwise().homogeneous()).colwise().hnormalized();
+    mCornersCam3D = (CalibParams::RLinv * CalibParams::RTinv * mCorners3D.colwise().homogeneous())
+                        .colwise()
+                        .hnormalized();
 
     // Project Corners to image
     mCorners2D = (CalibParams::K * mCornersCam3D).colwise().hnormalized();

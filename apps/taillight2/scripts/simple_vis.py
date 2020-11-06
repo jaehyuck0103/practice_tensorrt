@@ -6,7 +6,7 @@ import numpy as np
 
 from preprocess_log import homo_tf
 
-VOSS_PROJECT_PATH = "/mnt/EVO_4TB/VoSS/20200316-174732(20191213-125018_emul)"
+VOSS_PROJECT_PATH = "/mnt/SATA01/VoSS/20200316-174732(20191213-125018_emul)"
 JSON_PATH = "./json.json"
 
 
@@ -45,8 +45,22 @@ def project2img(xyz: np.array) -> np.array:
             [0, 0, 0, 1],
         ]
     )
-    RT = np.linalg.inv(RT)
-    RT = RT[0:3, :]
+    T_veh2cam = np.linalg.inv(RT)
+    # ----
+    RL = np.array(
+        [
+            [0.999844, 0.001632, -0.017567, 0],
+            [-0.001632, 0.999999, 0, 0],
+            [0.017567, 0.000029, 0.999846, 0],
+            [0, 0, 0, 1],
+        ]
+    )
+    T_cam2rect = np.linalg.inv(RL)
+    # ----
+
+    T_veh2rect = T_cam2rect @ T_veh2cam
+    T_veh2rect = T_veh2rect[0:3, :]
+
     K = np.array(
         [
             [819.162645, 0.000000, 640.000000],
@@ -54,12 +68,18 @@ def project2img(xyz: np.array) -> np.array:
             [0.000000, 0.000000, 1.000000],
         ]
     )
-    xy_projected = homo_tf(K @ RT, xyz)
+    xy_projected = homo_tf(K @ T_veh2rect, xyz)
     return xy_projected
 
 
 def rot_mat_Z3D(tz):
-    return np.array([[np.cos(tz), -np.sin(tz), 0], [np.sin(tz), np.cos(tz), 0], [0, 0, 1]])
+    return np.array(
+        [
+            [np.cos(tz), -np.sin(tz), 0],
+            [np.sin(tz), np.cos(tz), 0],
+            [0, 0, 1],
+        ]
+    )
 
 
 def get_cube_xyz(xyz_center, lwh, rot):

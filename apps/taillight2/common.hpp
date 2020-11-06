@@ -14,6 +14,13 @@ struct CalibParams {
                                  0, 0, 0, 1
             ).finished();
     inline static const Eigen::Matrix4f RTinv = RT.inverse();
+    inline static const Eigen::Matrix4f RL = (
+            Eigen::Matrix4f() << 0.999844, 0.001632, -0.017567, 0,
+                                 -0.001632, 0.999999, 0, 0,
+                                 0.017567, 0.000029, 0.999846, 0,
+                                 0, 0, 0, 1
+            ).finished();
+    inline static const Eigen::Matrix4f RLinv = RL.inverse();
     inline static const Eigen::Matrix3f K = (
             Eigen::Matrix3f() << 819.162645, 0.000000, 640.000000,
                                  0.000000, 819.162645, 240.000000,
