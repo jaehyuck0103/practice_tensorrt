@@ -51,17 +51,26 @@ int main(int argc, char **argv) {
 
         std::vector<Instance> instVec;
         for (const auto &eachObj : eachFrame["objs"]) {
+            // 0    classId in ascending order (car, truck(bus), pedestrian, bicycle(motorcycle))
+            // 1    trackingId
+            // 2~7  xyzlwh (unit: meter)
+            // 8    heading angle (unit: radian)
+            int classId = eachObj[0].get<int>();
+            int trackId = eachObj[1].get<int>();
+            std::array<float, 3> xyz{eachObj[2].get<float>(), eachObj[3].get<float>(),
+                                     eachObj[4].get<float>()};
+            std::array<float, 3> lwh{eachObj[5].get<float>(), eachObj[6].get<float>(),
+                                     eachObj[7].get<float>()};
+            float yaw = eachObj[8].get<float>();
+
             // Simple filtering
-            // int classId = eachObj[0].get<int>();
-            float centerX = eachObj[2].get<float>();
-            float centerY = eachObj[3].get<float>();
             // if (classId == 2) { continue; }
-            if (centerX < 4 || centerX > 40 || abs(centerY) > 10) {
+            if (xyz[0] < 4 || xyz[0] > 40 || abs(xyz[1]) > 10) {
                 continue;
             }
 
             // Generate Instance
-            instVec.emplace_back(eachObj);
+            instVec.emplace_back(classId, trackId, xyz, lwh, yaw);
         }
 
         // image 내에 약간이라도 projection되는 instance만 남김.

@@ -2,20 +2,17 @@
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
 
-Instance::Instance(const json &inputRow) {
+Instance::Instance(int classId, int trackId, std::array<float, 3> xyz, std::array<float, 3> lwh,
+                   float yaw) {
 
     /* ---------------------*
      * Set by input
      * ---------------------*/
-    // 0    classId in ascending order (car, truck(bus), pedestrian, bicycle(motorcycle))
-    // 1    trackingId
-    // 2~7  xyzlwh (unit: meter)
-    // 8    heading angle (unit: radian)
-    mClassId = inputRow[0].get<int>();
-    mTrackId = inputRow[1].get<int>();
-    mXyzCenter << inputRow[2].get<float>(), inputRow[3].get<float>(), inputRow[4].get<float>();
-    mLwh << inputRow[5].get<float>(), inputRow[6].get<float>(), inputRow[7].get<float>();
-    mYaw = inputRow[8].get<float>();
+    mClassId = classId;
+    mTrackId = trackId;
+    mXyzCenter << xyz[0], xyz[1], xyz[2];
+    mLwh << lwh[0], lwh[1], lwh[2];
+    mYaw = yaw;
 
     /* ---------------------*
      * Set corners (3D, 2D)

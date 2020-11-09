@@ -1,14 +1,11 @@
 #pragma once
 #include "common.hpp"
-#include <nlohmann/json.hpp>
-
 #include <opencv2/opencv.hpp>
-
-using json = nlohmann::json;
 
 class Instance {
   public:
-    Instance(const json &inputRow);
+    Instance(int classId, int trackId, std::array<float, 3> xyz, std::array<float, 3> lwh,
+             float yaw);
 
     bool isAnyCornersInImage(int imgH, int imgW) const;
     bool isAllCornersFrontOfCam() const;
