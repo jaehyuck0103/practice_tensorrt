@@ -13,7 +13,7 @@ struct InferenceParams {
     std::string trtFilePath;
 };
 
-void checkDims(const nvinfer1::Dims &dims, std::vector<int> targetDims) {
+inline void checkDims(const nvinfer1::Dims &dims, std::vector<int> targetDims) {
 
     if (dims.nbDims != static_cast<int>(targetDims.size())) {
         std::cout << "Improper nbDims" << std::endl;
@@ -34,7 +34,39 @@ class BaseInferAgent {
   public:
     BaseInferAgent(const InferenceParams &params) : mParams(params) { loadEngine(); }
 
-    void loadEngine();
+    void loadEngine() {
+        std::ifstream engineFile(mParams.trtFilePath, std::ios::binary);
+        if (engineFile.fail()) {
+            std::cout << "Error opening TRT file." << std::endl;
+            exit(1);
+        }
+
+        engineFile.seekg(0, engineFile.end);
+        long int fsize = engineFile.tellg();
+        engineFile.seekg(0, engineFile.beg);
+
+        std::vector<char> engineData(fsize);
+        engineFile.read(engineData.data(), fsize);
+        if (engineFile.fail()) {
+            std::cout << "Error reading TRT file." << std::endl;
+            exit(1);
+        }
+
+        UniquePtrTRT<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(gLogger)};
+        // if (DLACore != -1) { runtime->setDLACore(DLACore); }
+        mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+            runtime->deserializeCudaEngine(engineData.data(), fsize, nullptr), InferDeleter());
+
+        // -----------------------
+        // Create buffer manager
+        // -----------------------
+        mBufManager = std::make_unique<BufferManager>(mEngine);
+
+        // ---------------
+        // Create context
+        // ---------------
+        mContext = UniquePtrTRT<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    };
 
   protected:
     InferenceParams mParams;
@@ -43,37 +75,3 @@ class BaseInferAgent {
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
     UniquePtrTRT<nvinfer1::IExecutionContext> mContext{nullptr};
 };
-
-void BaseInferAgent::loadEngine() {
-    std::ifstream engineFile(mParams.trtFilePath, std::ios::binary);
-    if (engineFile.fail()) {
-        std::cout << "Error opening TRT file." << std::endl;
-        exit(1);
-    }
-
-    engineFile.seekg(0, engineFile.end);
-    long int fsize = engineFile.tellg();
-    engineFile.seekg(0, engineFile.beg);
-
-    std::vector<char> engineData(fsize);
-    engineFile.read(engineData.data(), fsize);
-    if (engineFile.fail()) {
-        std::cout << "Error reading TRT file." << std::endl;
-        exit(1);
-    }
-
-    UniquePtrTRT<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(gLogger)};
-    // if (DLACore != -1) { runtime->setDLACore(DLACore); }
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(engineData.data(), fsize, nullptr), InferDeleter());
-
-    // -----------------------
-    // Create buffer manager
-    // -----------------------
-    mBufManager = std::make_unique<BufferManager>(mEngine);
-
-    // ---------------
-    // Create context
-    // ---------------
-    mContext = UniquePtrTRT<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
-}

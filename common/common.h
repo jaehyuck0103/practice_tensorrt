@@ -12,7 +12,7 @@ class Logger : public nvinfer1::ILogger {
         if (severity != nvinfer1::ILogger::Severity::kINFO)
             std::cout << msg << std::endl;
     }
-} gLogger;
+} inline gLogger;
 
 struct InferDeleter {
     template <typename T> void operator()(T *obj) const {

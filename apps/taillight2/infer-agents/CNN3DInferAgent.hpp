@@ -7,12 +7,12 @@ class CNN3DInferAgent : public BaseInferAgent {
 
   public:
     CNN3DInferAgent(const InferenceParams &params);
-    std::vector<int> infer(const std::list<std::vector<float>> &encodedTails);
+    std::vector<int> infer(const std::list<std::vector<float>> &encodedTailSeqs);
 
   private:
 };
 
-CNN3DInferAgent::CNN3DInferAgent(const InferenceParams &params) : BaseInferAgent(params) {
+inline CNN3DInferAgent::CNN3DInferAgent(const InferenceParams &params) : BaseInferAgent(params) {
     // ------------
     // Check Dims
     // ------------
@@ -25,7 +25,8 @@ CNN3DInferAgent::CNN3DInferAgent(const InferenceParams &params) : BaseInferAgent
     checkDims(outDims, CNN3DCfg::outDims);
 }
 
-std::vector<int> CNN3DInferAgent::infer(const std::list<std::vector<float>> &encodedTailSeqs) {
+inline std::vector<int>
+CNN3DInferAgent::infer(const std::list<std::vector<float>> &encodedTailSeqs) {
     std::vector<int> result;
     if (encodedTailSeqs.empty()) {
         return result;

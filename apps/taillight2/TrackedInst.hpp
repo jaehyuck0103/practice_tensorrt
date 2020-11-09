@@ -1,12 +1,11 @@
 #pragma once
+
 #include <deque>
 #include <iostream>
 #include <list>
-#include <map>
-#include <numeric>
 #include <vector>
 
-#include "infer-agents/CNN3DInferAgent.hpp"
+#include "./common.hpp"
 
 struct TrackerInput {
     int trackId;
@@ -120,62 +119,3 @@ class TrackedInst {
     static constexpr int kLenSeq = CNN3DCfg::inSeqLen;
     static constexpr int kEncodedSize = ENCODED_TAIL_SIZE;
 };
-
-class SimpleTracker {
-
-  public:
-    SimpleTracker() {
-        const std::string homeDir = std::getenv("HOME");
-        InferenceParams params;
-
-        params.trtFilePath =
-            homeDir +
-            "/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_3Dconv.trt";
-        mInferAgent = std::make_unique<CNN3DInferAgent>(params);
-    }
-
-    void update(std::list<TrackerInput> &input);
-    std::tuple<std::vector<int>, std::vector<int>> infer();
-
-  private:
-    std::list<TrackedInst> mTrackedInsts;
-    std::unique_ptr<CNN3DInferAgent> mInferAgent;
-};
-
-void SimpleTracker::update(std::list<TrackerInput> &inputs) {
-    // Update tracked instances.
-    for (auto &elem : mTrackedInsts) {
-        elem.update(inputs);
-    }
-
-    // Generate New instances
-    for (const auto &elem : inputs) {
-        mTrackedInsts.emplace_back(elem);
-    }
-
-    // 최근 3프레임에 detect이 없으면 제거
-    mTrackedInsts.remove_if([](const TrackedInst &inst) { return inst.shouldRemoved(); });
-
-    // print
-    for (const auto &elem : mTrackedInsts) {
-        elem.printDetected();
-    }
-}
-
-std::tuple<std::vector<int>, std::vector<int>> SimpleTracker::infer() {
-    std::list<std::vector<float>> inputFeats;
-    std::vector<int> inferredTrackIds;
-    for (const auto &elem : mTrackedInsts) {
-        if (elem.canInfered()) {
-            inputFeats.push_back(elem.getConcatedFeats());
-            inferredTrackIds.push_back(elem.trackId());
-        }
-    }
-    std::vector<int> inferredStates = mInferAgent->infer(inputFeats);
-
-    if (inferredTrackIds.size() != inferredStates.size()) {
-        std::cout << "inferredTrackIds and inferredStates should have same size" << std::endl;
-        exit(1);
-    }
-    return {inferredTrackIds, inferredStates};
-}

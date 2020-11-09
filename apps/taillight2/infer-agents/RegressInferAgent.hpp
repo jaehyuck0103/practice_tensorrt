@@ -13,7 +13,8 @@ class RegressInferAgent : public BaseInferAgent {
   private:
 };
 
-RegressInferAgent::RegressInferAgent(const InferenceParams &params) : BaseInferAgent(params) {
+inline RegressInferAgent::RegressInferAgent(const InferenceParams &params)
+    : BaseInferAgent(params) {
     // ------------
     // Check Dims
     // ------------
@@ -26,7 +27,7 @@ RegressInferAgent::RegressInferAgent(const InferenceParams &params) : BaseInferA
     checkDims(outDims, RegCfg::outDims);
 }
 
-std::vector<std::array<float, 4>>
+inline std::vector<std::array<float, 4>>
 RegressInferAgent::infer(const std::vector<cv::Mat> &croppedImgs) {
     std::vector<std::array<float, 4>> result;
     if (croppedImgs.empty()) {

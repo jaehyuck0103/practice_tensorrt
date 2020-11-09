@@ -13,7 +13,7 @@ class UNetInferAgent : public BaseInferAgent {
   private:
 };
 
-UNetInferAgent::UNetInferAgent(const InferenceParams &params) : BaseInferAgent(params) {
+inline UNetInferAgent::UNetInferAgent(const InferenceParams &params) : BaseInferAgent(params) {
     // ------------
     // Check Dims
     // ------------
@@ -26,7 +26,8 @@ UNetInferAgent::UNetInferAgent(const InferenceParams &params) : BaseInferAgent(p
     checkDims(outDims, UNetCfg::outDims);
 }
 
-std::vector<std::vector<float>> UNetInferAgent::infer(const std::vector<cv::Mat> &croppedImgs) {
+inline std::vector<std::vector<float>>
+UNetInferAgent::infer(const std::vector<cv::Mat> &croppedImgs) {
     std::vector<std::vector<float>> result;
     if (croppedImgs.empty()) {
         return result;
