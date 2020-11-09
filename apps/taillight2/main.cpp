@@ -141,10 +141,6 @@ int main(int argc, char **argv) {
         for (size_t i = 0; i < regressedRois.size(); ++i) {
             cv::Mat regressedImg;
             cv::resize(img(regressedRois[i]), regressedImg, cv::Size{UNetCfg::inW, UNetCfg::inH});
-            cv::imshow("test", regressedImg);
-            cv::imwrite("Debug2/" + std::to_string(frameIdx) + "_" + std::to_string(i) + ".png",
-                        regressedImg);
-            // cv::waitKey();
 
             cv::cvtColor(regressedImg, regressedImg, cv::COLOR_BGR2RGB);
             regressedImg.convertTo(regressedImg, CV_32FC3);
