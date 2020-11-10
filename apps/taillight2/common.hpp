@@ -89,3 +89,6 @@ inline const int outNumEl =
 } // namespace CNN3DCfg
 
 constexpr int ENCODED_TAIL_SIZE = UNetCfg::outC * UNetCfg::outH * UNetCfg::outW;
+
+inline const std::array<std::string, 8> STATES{{"None", "Brake", "Left", "Brake Left", "Right",
+                                                "Brake Right", "Emergency", "Brake Emergency"}};

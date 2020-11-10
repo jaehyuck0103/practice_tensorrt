@@ -64,7 +64,7 @@ void build(const SampleParams &params) {
     // -----------------
     UniquePtrTRT<nvinfer1::IHostMemory> serializedEngine{engine->serialize()};
 
-    std::string engineFilePath = fs::path{params.onnxFilePath}.replace_extension(".trt");
+    std::string engineFilePath = fs::path{params.onnxFilePath}.replace_extension(".trt").string();
     std::ofstream engineFile(engineFilePath, std::ios::binary);
     engineFile.write(static_cast<char *>(serializedEngine->data()), serializedEngine->size());
 }

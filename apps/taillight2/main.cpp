@@ -1,5 +1,6 @@
 #include "TailRecogManager.hpp"
 #include "instance.hpp"
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -9,6 +10,7 @@
 #include <opencv2/core/eigen.hpp>
 
 using json = nlohmann::json;
+namespace chrono = std::chrono;
 
 int main(int argc, char **argv) {
     std::vector<std::string> arguments(argv + 1, argv + argc);
@@ -63,9 +65,13 @@ int main(int argc, char **argv) {
         // -------------------------
         // Run Manager
         // -------------------------
+        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
         MatrixXXb stackMask = MatrixXXb::Zero(img.rows, img.cols);
         auto [regressedRois, validTailInsts] = tailRecogManager.updateDet(img, instVec, stackMask);
         auto [inferredTrackIds, inferredStates] = tailRecogManager.infer();
+        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+        auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+        std::cout << "processing_time (micro sec): " << duration << std::endl;
 
         // ------------------------
         // Write results to json
@@ -107,15 +113,29 @@ int main(int argc, char **argv) {
             cv::imwrite("Debug/" + std::to_string(frameIdx) + "img.png", displayedImg);
             cv::imwrite("Debug/" + std::to_string(frameIdx) + "mask.png", displayedMask);
         } else {
+            // 0.7초 이전 state이지만 출력.
+            for (size_t i = 0; i < inferredTrackIds.size(); ++i) {
+                int trackId = inferredTrackIds.at(i);
+                std::string state_str = STATES.at(inferredStates.at(i));
+                for (size_t j = 0; j < regressedRois.size(); ++j) {
+                    if (validTailInsts[j].trackId() == trackId) {
+                        cv::putText(displayedMask, state_str,
+                                    {regressedRois[j].x, regressedRois[j].y},
+                                    cv::FONT_HERSHEY_PLAIN, 1, {0, 0, 255}, 2);
+                        std::cout << "drawing " << trackId << std::endl;
+                        break;
+                    }
+                }
+            }
             cv::imshow("img_display", displayedImg);
             cv::imshow("mask_display", displayedMask);
             if (cv::waitKey() == 'q')
                 break;
+            frameIdx += 1;
         }
-        frameIdx += 1;
-    }
 
-    std::ofstream ofs{"Debug/result.json"};
-    ofs << std::setw(4) << jsonResult << std::endl;
-    ofs.close();
+        std::ofstream ofs{"Debug/result.json"};
+        ofs << std::setw(4) << jsonResult << std::endl;
+        ofs.close();
+    }
 }
