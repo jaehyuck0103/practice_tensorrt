@@ -26,14 +26,11 @@ link_directories($ENV{HOME}/Util/TensorRT-7.2.1.6/lib)
 add_executable(main1 apps/OnnxMNIST/sampleOnnx.cpp)
 target_link_libraries(main1 cudart nvinfer nvonnxparser)
 
-add_executable(main2 apps/taillight/taillight.cpp)
-target_link_libraries(main2 cudart nvinfer nvonnxparser ${OpenCV_LIBS} stdc++fs)
-
 add_executable(main3 apps/MultiInput/multiInput.cpp)
 target_link_libraries(main3 cudart nvinfer nvonnxparser)
 
-add_executable(main4 apps/taillight2/main.cpp apps/taillight2/instance.cpp
-                     apps/taillight2/TailRecogManager.cpp)
+add_executable(main4 apps/taillight/main.cpp apps/taillight/instance.cpp
+                     apps/taillight/TailRecogManager.cpp)
 target_link_libraries(main4 cudart nvinfer nvonnxparser ${OpenCV_LIBS})
 
 add_executable(exec_BuildOnly apps/BuildOnly/main.cpp)
@@ -52,13 +49,6 @@ add_custom_target(
 )
 
 add_custom_target(
-  run2
-  COMMAND main2
-  WORKING_DIRECTORY
-    ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight # ${CMAKE_PROJECT_DIR}
-)
-
-add_custom_target(
   run3
   COMMAND main3
   WORKING_DIRECTORY
@@ -69,14 +59,14 @@ add_custom_target(
   run4
   COMMAND main4
   WORKING_DIRECTORY
-    ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight2 # ${CMAKE_PROJECT_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight # ${CMAKE_PROJECT_DIR}
 )
 
 add_custom_target(
   run4_imwrite
   COMMAND main4 --imwrite
   WORKING_DIRECTORY
-    ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight2 # ${CMAKE_PROJECT_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/apps/taillight # ${CMAKE_PROJECT_DIR}
 )
 
 add_custom_target(

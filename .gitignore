@@ -1,8 +1,9 @@
-.clangd
+.cache
 build/
 compile_commands.json
 __pycache__/
-/apps/taillight2/scripts/*.json
+/apps/taillight/scripts/*.json
+/apps/taillight/Debug/
 *.avi
 *.trt
 

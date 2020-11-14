@@ -131,11 +131,12 @@ int main(int argc, char **argv) {
             cv::imshow("mask_display", displayedMask);
             if (cv::waitKey() == 'q')
                 break;
-            frameIdx += 1;
         }
 
         std::ofstream ofs{"Debug/result.json"};
         ofs << std::setw(4) << jsonResult << std::endl;
         ofs.close();
+
+        frameIdx += 1;
     }
 }
