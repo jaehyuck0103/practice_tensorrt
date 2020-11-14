@@ -13,7 +13,7 @@
 #include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include "common/bufferManager.h"
+#include "trt_utils/bufferManager.h"
 
 namespace fs = std::experimental::filesystem;
 namespace chrono = std::chrono;

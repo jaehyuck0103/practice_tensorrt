@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(MOT_CPP)
+project(my_trt)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -16,7 +16,7 @@ find_package(OpenCV REQUIRED PATHS $ENV{HOME}/Util/opencv/build)
 
 include_directories(/usr/local/cuda/include)
 include_directories($ENV{HOME}/Util/TensorRT-7.2.1.6/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(third_party/eigen-3.3.8)
 include_directories(third_party/nlohmann_json-3.9.1/include)
 

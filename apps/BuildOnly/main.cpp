@@ -8,7 +8,7 @@
 #include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include "common/common.h"
+#include "trt_utils/common.h"
 
 namespace fs = std::experimental::filesystem;
 

@@ -9,7 +9,7 @@
 #include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include "common/bufferManager.h"
+#include "trt_utils/bufferManager.h"
 
 struct SampleParams {
     bool int8{false}; //!< Allow runnning the network in Int8 mode.

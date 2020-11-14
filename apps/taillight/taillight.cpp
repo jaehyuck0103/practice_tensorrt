@@ -1,5 +1,4 @@
 #include <cassert>
-#include <chrono>
 #include <experimental/filesystem> // gcc 8부터 experimental 뗄 수 있다. CMAKE의 link도 나중에 같이 떼주도록 하자.
 #include <fstream>
 #include <iostream>
@@ -13,10 +12,9 @@
 #include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include "common/bufferManager.h"
+#include "trt_utils/bufferManager.h"
 
 namespace fs = std::experimental::filesystem;
-namespace chrono = std::chrono;
 
 struct SampleParams {
     std::string inputTensorName;
