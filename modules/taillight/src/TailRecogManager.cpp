@@ -1,5 +1,4 @@
-#pragma once
-#include "TailRecogManager.hpp"
+#include "taillight/TailRecogManager.hpp"
 #include "infer-agents/CNN3DInferAgent.hpp"
 #include "infer-agents/RegressInferAgent.hpp"
 #include "infer-agents/UNetInferAgent.hpp"

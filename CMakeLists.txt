@@ -24,6 +24,8 @@ include_directories(third_party/nlohmann_json-3.9.1/include)
 link_directories(/usr/local/cuda/lib64)
 link_directories($ENV{HOME}/Util/TensorRT-7.2.1.6/lib)
 
+add_subdirectory(./modules/taillight)
+
 add_subdirectory(./apps/OnnxMNIST)
 add_subdirectory(./apps/BuildOnly)
 add_subdirectory(./apps/taillight)

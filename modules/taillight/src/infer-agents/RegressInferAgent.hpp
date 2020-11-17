@@ -1,7 +1,7 @@
 #pragma once
 #include "BaseInferAgent.hpp"
 
-#include "../common.hpp"
+#include "taillight/common.hpp"
 #include <opencv2/opencv.hpp>
 
 class RegressInferAgent : public BaseInferAgent {

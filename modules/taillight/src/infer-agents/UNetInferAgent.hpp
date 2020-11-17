@@ -1,6 +1,6 @@
 #pragma once
-#include "../common.hpp"
 #include "BaseInferAgent.hpp"
+#include "taillight/common.hpp"
 
 #include <opencv2/opencv.hpp>
 

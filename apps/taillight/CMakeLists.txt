@@ -1,5 +1,6 @@
-add_executable(execTaillight main.cpp instance.cpp TailRecogManager.cpp)
-target_link_libraries(execTaillight cudart nvinfer nvonnxparser ${OpenCV_LIBS})
+add_executable(execTaillight main.cpp)
+target_link_libraries(execTaillight libTaillight cudart nvinfer nvonnxparser
+                      ${OpenCV_LIBS})
 
 add_custom_target(
   runTaillight
