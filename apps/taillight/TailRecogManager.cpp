@@ -1,5 +1,8 @@
 #pragma once
 #include "TailRecogManager.hpp"
+#include "infer-agents/CNN3DInferAgent.hpp"
+#include "infer-agents/RegressInferAgent.hpp"
+#include "infer-agents/UNetInferAgent.hpp"
 
 TailRecogManager::TailRecogManager() {
     const std::string homeDir = std::getenv("HOME");
@@ -17,6 +20,8 @@ TailRecogManager::TailRecogManager() {
         homeDir + "/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_3Dconv.trt";
     mInferAgent = std::make_unique<CNN3DInferAgent>(params);
 }
+
+TailRecogManager::~TailRecogManager() = default;
 
 std::tuple<std::vector<cv::Rect>, std::vector<Instance>>
 TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, MatrixXXb &stackMask) {

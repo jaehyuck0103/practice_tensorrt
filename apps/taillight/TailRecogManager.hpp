@@ -1,14 +1,16 @@
 #pragma once
 #include "TrackedInst.hpp"
-#include "infer-agents/CNN3DInferAgent.hpp"
-#include "infer-agents/RegressInferAgent.hpp"
-#include "infer-agents/UNetInferAgent.hpp"
 #include "instance.hpp"
+
+class RegressInferAgent;
+class UNetInferAgent;
+class CNN3DInferAgent;
 
 class TailRecogManager {
 
   public:
     TailRecogManager();
+    ~TailRecogManager();
     std::tuple<std::vector<cv::Rect>, std::vector<Instance>>
     updateDet(cv::Mat img, std::vector<Instance> &instVec, MatrixXXb &stackMask);
 
