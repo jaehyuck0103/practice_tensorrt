@@ -20,6 +20,7 @@ include_directories($ENV{HOME}/Util/TensorRT-7.2.1.6/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(third_party/eigen-3.3.8)
 include_directories(third_party/nlohmann_json-3.9.1/include)
+include_directories(third_party/toml11-3.6.0)
 
 link_directories(/usr/local/cuda/lib64)
 link_directories($ENV{HOME}/Util/TensorRT-7.2.1.6/lib)

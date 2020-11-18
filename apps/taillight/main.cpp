@@ -1,10 +1,11 @@
-#include "taillight/TailRecogManager.hpp"
 #include "taillight/instance.hpp"
+#include "taillight/TailRecogManager.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <toml.hpp>
 #include <vector>
 
 #include <opencv2/core/eigen.hpp>
@@ -23,6 +24,15 @@ int main(int argc, char **argv) {
     std::ifstream ifs{"scripts/json.json"};
     json j = json::parse(ifs);
     ifs.close();
+
+    // Read config file
+    auto data = toml::parse("./config.toml");
+    const std::array<float, 16> RT_vals = toml::find<std::array<float, 16>>(data, "calib", "RT");
+    const std::array<float, 16> RL_vals = toml::find<std::array<float, 16>>(data, "calib", "RL");
+    const std::array<float, 9> K_vals = toml::find<std::array<float, 9>>(data, "calib", "K");
+
+    const CalibParams calib_params{RT_vals, RL_vals, K_vals};
+    calib_params.printParams();
 
     // Manager
     TailRecogManager tailRecogManager;
@@ -46,10 +56,16 @@ int main(int argc, char **argv) {
             // 8    heading angle (unit: radian)
             int classId = eachObj[0].get<int>();
             int trackId = eachObj[1].get<int>();
-            std::array<float, 3> xyz{eachObj[2].get<float>(), eachObj[3].get<float>(),
-                                     eachObj[4].get<float>()};
-            std::array<float, 3> lwh{eachObj[5].get<float>(), eachObj[6].get<float>(),
-                                     eachObj[7].get<float>()};
+            std::array<float, 3> xyz{
+                eachObj[2].get<float>(),
+                eachObj[3].get<float>(),
+                eachObj[4].get<float>(),
+            };
+            std::array<float, 3> lwh{
+                eachObj[5].get<float>(),
+                eachObj[6].get<float>(),
+                eachObj[7].get<float>(),
+            };
             float yaw = eachObj[8].get<float>();
 
             // Simple filtering
@@ -59,7 +75,7 @@ int main(int argc, char **argv) {
             }
 
             // Generate Instance
-            instVec.emplace_back(classId, trackId, xyz, lwh, yaw);
+            instVec.emplace_back(classId, trackId, xyz, lwh, yaw, calib_params);
         }
 
         // -------------------------
@@ -84,7 +100,9 @@ int main(int argc, char **argv) {
         json jsonRois = json::object();
         for (size_t i = 0; i < regressedRois.size(); ++i) {
             jsonRois[std::to_string(validTailInsts[i].trackId())] = {
-                regressedRois[i].x, regressedRois[i].y, regressedRois[i].width,
+                regressedRois[i].x,
+                regressedRois[i].y,
+                regressedRois[i].width,
                 regressedRois[i].height};
         }
         jsonResult.push_back({{"result", jsonInferStates}, {"bbox", jsonRois}});
@@ -119,9 +137,14 @@ int main(int argc, char **argv) {
                 std::string state_str = STATES.at(inferredStates.at(i));
                 for (size_t j = 0; j < regressedRois.size(); ++j) {
                     if (validTailInsts[j].trackId() == trackId) {
-                        cv::putText(displayedMask, state_str,
-                                    {regressedRois[j].x, regressedRois[j].y},
-                                    cv::FONT_HERSHEY_PLAIN, 1, {0, 0, 255}, 2);
+                        cv::putText(
+                            displayedMask,
+                            state_str,
+                            {regressedRois[j].x, regressedRois[j].y},
+                            cv::FONT_HERSHEY_PLAIN,
+                            1,
+                            {0, 0, 255},
+                            2);
                         std::cout << "drawing " << trackId << std::endl;
                         break;
                     }

@@ -2,8 +2,13 @@
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
 
-Instance::Instance(int classId, int trackId, std::array<float, 3> xyz, std::array<float, 3> lwh,
-                   float yaw) {
+Instance::Instance(
+    int classId,
+    int trackId,
+    std::array<float, 3> xyz,
+    std::array<float, 3> lwh,
+    float yaw,
+    const CalibParams &calib_params) {
 
     /* ---------------------*
      * Set by input
@@ -30,12 +35,11 @@ Instance::Instance(int classId, int trackId, std::array<float, 3> xyz, std::arra
     mCorners3D = transform * mCorners3D;
 
     // camera coordinates
-    mCornersCam3D = (CalibParams::RLinv * CalibParams::RTinv * mCorners3D.colwise().homogeneous())
-                        .colwise()
-                        .hnormalized();
+    mCornersCam3D =
+        (calib_params.T_veh2cam * mCorners3D.colwise().homogeneous()).colwise().hnormalized();
 
     // Project Corners to image
-    mCorners2D = (CalibParams::K * mCornersCam3D).colwise().hnormalized();
+    mCorners2D = (calib_params.K * mCornersCam3D).colwise().hnormalized();
 
     /* ----------------------------------*
      * Minimun distance to box (roughly)
@@ -86,21 +90,35 @@ bool Instance::isCar() const {
 
 void Instance::renderToImg(cv::Mat &img) const {
 
-    auto renderPairs = [&img, this](const std::vector<std::pair<int, int>> &pairs,
-                                    cv::Scalar color) {
+    auto renderPairs = [&img,
+                        this](const std::vector<std::pair<int, int>> &pairs, cv::Scalar color) {
         for (const auto &p : pairs) {
-            cv::Point point1{static_cast<int>(this->mCorners2D(0, p.first) + 0.5),
-                             static_cast<int>(this->mCorners2D(1, p.first) + 0.5)};
-            cv::Point point2{static_cast<int>(this->mCorners2D(0, p.second) + 0.5),
-                             static_cast<int>(this->mCorners2D(1, p.second) + 0.5)};
+            cv::Point point1{
+                static_cast<int>(this->mCorners2D(0, p.first) + 0.5),
+                static_cast<int>(this->mCorners2D(1, p.first) + 0.5),
+            };
+            cv::Point point2{
+                static_cast<int>(this->mCorners2D(0, p.second) + 0.5),
+                static_cast<int>(this->mCorners2D(1, p.second) + 0.5),
+            };
             cv::line(img, point1, point2, color);
         }
     };
 
     // Render 3D Box
     const std::vector<std::pair<int, int>> boxPairs{
-        {0, 1}, {0, 2}, {0, 4}, {1, 3}, {1, 5}, {2, 3},
-        {2, 6}, {3, 7}, {4, 5}, {4, 6}, {5, 7}, {6, 7},
+        {0, 1},
+        {0, 2},
+        {0, 4},
+        {1, 3},
+        {1, 5},
+        {2, 3},
+        {2, 6},
+        {3, 7},
+        {4, 5},
+        {4, 6},
+        {5, 7},
+        {6, 7},
     };
 
     renderPairs(boxPairs, cv::Scalar{0, 0, 255});
@@ -116,8 +134,11 @@ void Instance::renderToImg(cv::Mat &img) const {
     renderPairs(frontPairs, cv::Scalar{255, 0, 0});
 
     // Render display string
-    const cv::Point strPos{static_cast<int>(mCorners2D(0, 0) + 0.5),
-                           static_cast<int>(mCorners2D(1, 0) + 0.5)};
+    const cv::Point strPos{
+        static_cast<int>(mCorners2D(0, 0) + 0.5),
+        static_cast<int>(mCorners2D(1, 0) + 0.5),
+    };
+
     cv::putText(img, mDisplayStr, strPos, cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 255), 2);
 }
 
@@ -170,8 +191,9 @@ MatrixXXb Instance::getMask(int imgH, int imgW, bool tailOnly) const {
     std::vector<cv::Point> points;
     const int numCols = tailOnly ? 4 : mCorners2D.cols();
     for (int c = 0; c < numCols; ++c) {
-        points.emplace_back(static_cast<int>(mCorners2D(0, c) + 0.5),
-                            static_cast<int>(mCorners2D(1, c) + 0.5));
+        points.emplace_back(
+            static_cast<int>(mCorners2D(0, c) + 0.5),
+            static_cast<int>(mCorners2D(1, c) + 0.5));
     }
     std::vector<cv::Point> hull;
     cv::convexHull(points, hull);

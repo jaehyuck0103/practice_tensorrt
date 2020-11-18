@@ -4,8 +4,13 @@
 
 class Instance {
   public:
-    Instance(int classId, int trackId, std::array<float, 3> xyz, std::array<float, 3> lwh,
-             float yaw);
+    Instance(
+        int classId,
+        int trackId,
+        std::array<float, 3> xyz,
+        std::array<float, 3> lwh,
+        float yaw,
+        const CalibParams &calib_params);
 
     bool isAnyCornersInImage(int imgH, int imgW) const;
     bool isAllCornersFrontOfCam() const;

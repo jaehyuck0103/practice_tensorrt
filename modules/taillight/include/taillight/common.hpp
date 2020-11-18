@@ -2,33 +2,36 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <array>
+#include <iostream>
 #include <numeric>
 
 typedef Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> MatrixXXb;
 
-// clang-format off
 struct CalibParams {
-    inline static const Eigen::Matrix4f RT = (
-            Eigen::Matrix4f() << -0.005317, 0.003402, 0.999980, 1.624150,
-                                 -0.999920, -0.011526, -0.005277, 0.296660,
-                                 0.011508, -0.999928, 0.003463, 1.457150,
-                                 0, 0, 0, 1
-            ).finished();
-    inline static const Eigen::Matrix4f RTinv = RT.inverse();
-    inline static const Eigen::Matrix4f RL = (
-            Eigen::Matrix4f() << 0.999844, 0.001632, -0.017567, 0,
-                                 -0.001632, 0.999999, 0, 0,
-                                 0.017567, 0.000029, 0.999846, 0,
-                                 0, 0, 0, 1
-            ).finished();
-    inline static const Eigen::Matrix4f RLinv = RL.inverse();
-    inline static const Eigen::Matrix3f K = (
-            Eigen::Matrix3f() << 819.162645, 0.000000, 640.000000,
-                                 0.000000, 819.162645, 240.000000,
-                                0.000000, 0.000000, 1.000000
-            ).finished();
+    const Eigen::Matrix4f RT;
+    const Eigen::Matrix4f RTinv;
+    const Eigen::Matrix4f RL;
+    const Eigen::Matrix4f RLinv;
+    const Eigen::Matrix4f T_veh2cam;
+    const Eigen::Matrix3f K;
+
+    CalibParams(
+        const std::array<float, 16> &RT_vals,
+        const std::array<float, 16> &RL_vals,
+        const std::array<float, 9> &K_vals)
+        : RT{Eigen::Matrix<float, 4, 4, Eigen::RowMajor>{RT_vals.data()}},
+          RTinv{RT.inverse()},
+          RL{Eigen::Matrix<float, 4, 4, Eigen::RowMajor>{RL_vals.data()}},
+          RLinv{RL.inverse()},
+          T_veh2cam{RLinv * RTinv},
+          K{Eigen::Matrix<float, 3, 3, Eigen::RowMajor>{K_vals.data()}} {}
+
+    void printParams() const {
+        std::cout << "RT\n" << RT << std::endl;
+        std::cout << "RL\n" << RL << std::endl;
+        std::cout << "K\n" << K << std::endl;
+    }
 };
-// clang-format on
 
 // angleDiff (-pi, pi)
 inline float angleDiff(float toAngle, float fromAngle) {
@@ -91,5 +94,12 @@ inline const int outNumEl =
 
 constexpr int ENCODED_TAIL_SIZE = UNetCfg::outC * UNetCfg::outH * UNetCfg::outW;
 
-inline const std::array<std::string, 8> STATES{{"None", "Brake", "Left", "Brake Left", "Right",
-                                                "Brake Right", "Emergency", "Brake Emergency"}};
+inline const std::array<std::string, 8> STATES{
+    {"None",
+     "Brake",
+     "Left",
+     "Brake Left",
+     "Right",
+     "Brake Right",
+     "Emergency",
+     "Brake Emergency"}};
