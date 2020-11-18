@@ -40,7 +40,8 @@ void benchmark(const std::string &trtFilePath) {
     UniquePtrTRT<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(gLogger)};
     // if (DLACore != -1) { runtime->setDLACore(DLACore); }
     std::shared_ptr<nvinfer1::ICudaEngine> engine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(engineData.data(), fsize, nullptr), InferDeleter());
+        runtime->deserializeCudaEngine(engineData.data(), fsize, nullptr),
+        InferDeleter());
 
     // -----------------------
     // Create buffer manager

@@ -26,13 +26,16 @@ std::tuple<std::vector<cv::Rect>, std::vector<Instance>>
 TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, MatrixXXb &stackMask) {
     // image 내에 약간이라도 projection되는 instance만 남김.
     instVec.erase(
-        std::remove_if(instVec.begin(), instVec.end(),
-                       [&img](auto x) { return !x.isValidProjection(img.rows, img.cols); }),
+        std::remove_if(
+            instVec.begin(),
+            instVec.end(),
+            [&img](auto x) { return !x.isValidProjection(img.rows, img.cols); }),
         instVec.end());
 
     // Sorting instVec by distance
-    std::sort(instVec.begin(), instVec.end(),
-              [](const Instance &lhs, const Instance &rhs) { return lhs.dist() < rhs.dist(); });
+    std::sort(instVec.begin(), instVec.end(), [](const Instance &lhs, const Instance &rhs) {
+        return lhs.dist() < rhs.dist();
+    });
 
     // 가림이 없는 tail view를 가지는 instances 추출.
     // 가까이 있는 instance부터 stackMask에 projection 해나간다.

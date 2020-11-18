@@ -34,8 +34,9 @@ void build(const SampleParams &params) {
     // -------------------
     auto parser =
         UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile(params.onnxFilePath.c_str(),
-                          static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
+    parser->parseFromFile(
+        params.onnxFilePath.c_str(),
+        static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
 
     // -------------
     // Build engine
@@ -57,7 +58,8 @@ void build(const SampleParams &params) {
 
     std::shared_ptr<nvinfer1::ICudaEngine> engine{nullptr};
     engine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), InferDeleter());
+        builder->buildEngineWithConfig(*network, *config),
+        InferDeleter());
 
     // -----------------
     // Serialize engine

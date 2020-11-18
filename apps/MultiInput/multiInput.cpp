@@ -36,15 +36,17 @@ void SampleMultiInput::build() {
     // -------------------
     auto parser =
         UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile("./multi_input.onnx",
-                          static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
+    parser->parseFromFile(
+        "./multi_input.onnx",
+        static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
 
     // -------------
     // Build engine
     // -------------
     auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), InferDeleter());
+        builder->buildEngineWithConfig(*network, *config),
+        InferDeleter());
 
     // ---------------
     // Create context

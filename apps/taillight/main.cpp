@@ -1,5 +1,5 @@
-#include "taillight/instance.hpp"
 #include "taillight/TailRecogManager.hpp"
+#include "taillight/instance.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>

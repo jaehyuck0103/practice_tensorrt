@@ -63,8 +63,9 @@ void SampleOnnxMNIST::build() {
     // -------------------
     auto parser =
         UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile(mParams.onnxFilePath.c_str(),
-                          static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
+    parser->parseFromFile(
+        mParams.onnxFilePath.c_str(),
+        static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
 
     // -------------
     // Build engine
@@ -83,7 +84,8 @@ void SampleOnnxMNIST::build() {
     */
 
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), InferDeleter());
+        builder->buildEngineWithConfig(*network, *config),
+        InferDeleter());
 
     // -----------------------
     // Create buffer manager

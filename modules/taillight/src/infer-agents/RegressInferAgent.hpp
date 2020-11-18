@@ -50,8 +50,10 @@ RegressInferAgent::infer(const std::vector<cv::Mat> &croppedImgs) {
             std::cout << "Invalid Input Feature Size" << std::endl;
             exit(1);
         }
-        hostInBuffer.insert(hostInBuffer.end(), (float *)(croppedImgs[i].datastart),
-                            (float *)(croppedImgs[i].dataend));
+        hostInBuffer.insert(
+            hostInBuffer.end(),
+            (float *)(croppedImgs[i].datastart),
+            (float *)(croppedImgs[i].dataend));
     }
     hostInBuffer.resize(RegCfg::inNumEl, 0.0f);
 
@@ -82,8 +84,11 @@ RegressInferAgent::infer(const std::vector<cv::Mat> &croppedImgs) {
     mBufManager->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
 
     for (int i = 0; i < realB; ++i) {
-        result.push_back(std::array<float, 4>{hostOutBuffer[4 * i + 0], hostOutBuffer[4 * i + 1],
-                                              hostOutBuffer[4 * i + 2], hostOutBuffer[4 * i + 3]});
+        result.push_back(std::array<float, 4>{
+            hostOutBuffer[4 * i + 0],
+            hostOutBuffer[4 * i + 1],
+            hostOutBuffer[4 * i + 2],
+            hostOutBuffer[4 * i + 3]});
     }
 
     return result;

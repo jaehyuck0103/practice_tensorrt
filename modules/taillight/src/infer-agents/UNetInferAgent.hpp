@@ -51,8 +51,10 @@ UNetInferAgent::infer(const std::vector<cv::Mat> &croppedImgs) {
             std::cout << "Invalid Input Feature Size" << std::endl;
             exit(1);
         }
-        hostInBuffer.insert(hostInBuffer.end(), (float *)(croppedImgs[i].datastart),
-                            (float *)(croppedImgs[i].dataend));
+        hostInBuffer.insert(
+            hostInBuffer.end(),
+            (float *)(croppedImgs[i].datastart),
+            (float *)(croppedImgs[i].dataend));
     }
     hostInBuffer.resize(UNetCfg::inNumEl, 0.0f);
 
