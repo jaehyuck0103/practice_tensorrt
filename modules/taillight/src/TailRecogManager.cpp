@@ -95,19 +95,13 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
         trackerInputs.push_back(TrackerInput{validTailInsts[i].trackId(), encodedImgs[i]});
     }
 
-    update(trackerInputs);
-
-    return {regressedRois, validTailInsts};
-}
-
-void TailRecogManager::update(std::list<TrackerInput> &inputs) {
     // Update tracked instances.
     for (auto &elem : mTrackedInsts) {
-        elem.update(inputs);
+        elem.update(trackerInputs);
     }
 
     // Generate New instances
-    for (const auto &elem : inputs) {
+    for (const auto &elem : trackerInputs) {
         mTrackedInsts.emplace_back(elem);
     }
 
@@ -118,6 +112,8 @@ void TailRecogManager::update(std::list<TrackerInput> &inputs) {
     for (const auto &elem : mTrackedInsts) {
         elem.printDetected();
     }
+
+    return {regressedRois, validTailInsts};
 }
 
 std::tuple<std::vector<int>, std::vector<int>> TailRecogManager::infer() {
