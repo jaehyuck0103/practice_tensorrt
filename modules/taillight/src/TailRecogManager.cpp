@@ -22,8 +22,10 @@ TailRecogManager::TailRecogManager() {
 
 TailRecogManager::~TailRecogManager() = default;
 
-std::tuple<std::vector<cv::Rect>, std::vector<Instance>>
-TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec) {
+std::tuple<std::vector<cv::Rect>, std::vector<Instance>> TailRecogManager::updateDet(
+    cv::Mat img,
+    std::vector<Instance> &instVec,
+    Eigen::ArrayXi &stackMask) {
     // image 내에 약간이라도 projection되는 instance만 남김.
     instVec.erase(
         std::remove_if(
@@ -40,13 +42,14 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec) {
     // 가림이 없는 tail view를 가지는 instances 추출.
     // 가까이 있는 instance부터 stackMask에 projection 해나간다.
     std::vector<Instance> validTailInsts;
-    ArrayXb stackMask = ArrayXb::Zero(img.cols);
+    int tmpCnt = 0;
     for (const auto &eachInst : instVec) {
+        ++tmpCnt;
         if (eachInst.isTailInSight(img.rows, img.cols, stackMask)) {
             validTailInsts.push_back(eachInst);
         }
         auto [u_min, u_max] = eachInst.getProjectionLR(img.cols);
-        stackMask.segment(u_min, u_max - u_min + 1) = true;
+        stackMask.segment(u_min, u_max - u_min + 1) = tmpCnt;
     }
 
     // tail crop image들을 모아서 tensorrt inference

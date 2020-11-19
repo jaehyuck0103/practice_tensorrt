@@ -142,7 +142,7 @@ void Instance::renderToImg(cv::Mat &img) const {
     cv::putText(img, mDisplayStr, strPos, cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 255), 2);
 }
 
-bool Instance::isTailInSight(int imgH, int imgW, const ArrayXb &stackMask) const {
+bool Instance::isTailInSight(int imgH, int imgW, const Eigen::ArrayXi &stackMask) const {
     // 1. 자동차 맞는지
     if (!isCar())
         return false;

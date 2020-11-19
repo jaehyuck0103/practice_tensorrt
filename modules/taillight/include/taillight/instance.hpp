@@ -19,7 +19,7 @@ class Instance {
 
     void renderToImg(cv::Mat &img) const;
 
-    bool isTailInSight(int imgH, int imgW, const ArrayXb &stackMask) const;
+    bool isTailInSight(int imgH, int imgW, const Eigen::ArrayXi &stackMask) const;
     MatrixXXb getMask(int imgH, int imgW, bool tailOnly) const;
     std::tuple<int, int, int, int> getTailRect(int imgH, int imgW, float padRatio) const;
     std::tuple<int, int> getProjectionLR(int imgW) const;
