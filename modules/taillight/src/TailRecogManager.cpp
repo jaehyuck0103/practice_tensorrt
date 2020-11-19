@@ -22,7 +22,7 @@ TailRecogManager::TailRecogManager() {
 
 TailRecogManager::~TailRecogManager() = default;
 
-std::tuple<std::vector<cv::Rect>, std::vector<Instance>>
+std::map<int, cv::Rect>
 TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXXb &occMask) {
     // image 내에 약간이라도 projection되는 instance만 남김.
     instVec.erase(
@@ -71,7 +71,8 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
             static_cast<int>(croppedRois[i].x + regressCoords[i][0] * croppedRois[i].width),
             static_cast<int>(croppedRois[i].y + regressCoords[i][1] * croppedRois[i].height),
             static_cast<int>((regressCoords[i][2] - regressCoords[i][0]) * croppedRois[i].width),
-            static_cast<int>((regressCoords[i][3] - regressCoords[i][1]) * croppedRois[i].height)};
+            static_cast<int>((regressCoords[i][3] - regressCoords[i][1]) * croppedRois[i].height),
+        };
         regressedRois.push_back(regressedRoi);
     }
 
@@ -113,7 +114,13 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
         elem.printDetected();
     }
 
-    return {regressedRois, validTailInsts};
+    // debugging용 return
+    std::map<int, cv::Rect> trackId_to_regressedRoi;
+    for (size_t i = 0; i < regressedRois.size(); ++i) {
+        trackId_to_regressedRoi.emplace(validTailInsts[i].trackId(), regressedRois[i]);
+    }
+
+    return trackId_to_regressedRoi;
 }
 
 std::map<int, int> TailRecogManager::infer() {

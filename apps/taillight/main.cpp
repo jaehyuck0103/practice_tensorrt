@@ -83,7 +83,9 @@ int main(int argc, char **argv) {
         // -------------------------
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
         ArrayXXb occMask = ArrayXXb::Zero(img.rows, img.cols);
-        auto [regressedRois, validTailInsts] = tailRecogManager.updateDet(img, instVec, occMask);
+
+        std::map<int, cv::Rect> trackId_to_regressedRoi =
+            tailRecogManager.updateDet(img, instVec, occMask);
         std::map<int, int> trackId_to_state = tailRecogManager.infer();
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -98,12 +100,13 @@ int main(int argc, char **argv) {
         }
 
         json jsonRois = json::object();
-        for (size_t i = 0; i < regressedRois.size(); ++i) {
-            jsonRois[std::to_string(validTailInsts[i].trackId())] = {
-                regressedRois[i].x,
-                regressedRois[i].y,
-                regressedRois[i].width,
-                regressedRois[i].height};
+        for (const auto &[id, roi] : trackId_to_regressedRoi) {
+            jsonRois[std::to_string(id)] = {
+                roi.x,
+                roi.y,
+                roi.width,
+                roi.height,
+            };
         }
         jsonResult.push_back({{"result", jsonInferStates}, {"bbox", jsonRois}});
 
@@ -123,7 +126,7 @@ int main(int argc, char **argv) {
         cv::cvtColor(displayedMask, displayedMask, cv::COLOR_GRAY2BGR);
 
         // Visualize regressedTails to Mask
-        for (const auto &roi : regressedRois) {
+        for (const auto &[_, roi] : trackId_to_regressedRoi) {
             img(roi).copyTo(displayedMask(roi));
         }
 
@@ -135,20 +138,16 @@ int main(int argc, char **argv) {
             // 0.7초 이전 state이지만 출력.
             for (const auto &[trackId, state] : trackId_to_state) {
                 std::string state_str = STATES.at(state);
-                for (size_t j = 0; j < regressedRois.size(); ++j) {
-                    if (validTailInsts[j].trackId() == trackId) {
-                        cv::putText(
-                            displayedMask,
-                            state_str,
-                            {regressedRois[j].x, regressedRois[j].y},
-                            cv::FONT_HERSHEY_PLAIN,
-                            1,
-                            {0, 0, 255},
-                            2);
-                        std::cout << "drawing " << trackId << std::endl;
-                        break;
-                    }
-                }
+                cv::Rect roi = trackId_to_regressedRoi[trackId];
+                cv::putText(
+                    displayedMask,
+                    state_str,
+                    {roi.x, roi.y},
+                    cv::FONT_HERSHEY_PLAIN,
+                    1,
+                    {0, 0, 255},
+                    2);
+                std::cout << "drawing " << trackId << std::endl;
             }
             cv::imshow("img_display", displayedImg);
             cv::imshow("mask_display", displayedMask);
@@ -156,10 +155,10 @@ int main(int argc, char **argv) {
                 break;
         }
 
-        std::ofstream ofs{"Debug/result.json"};
-        ofs << std::setw(4) << jsonResult << std::endl;
-        ofs.close();
-
         frameIdx += 1;
     }
+
+    std::ofstream ofs{"Debug/result.json"};
+    ofs << std::setw(4) << jsonResult << std::endl;
+    ofs.close();
 }
