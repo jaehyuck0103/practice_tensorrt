@@ -142,7 +142,7 @@ void Instance::renderToImg(cv::Mat &img) const {
     cv::putText(img, mDisplayStr, strPos, cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 255), 2);
 }
 
-bool Instance::isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) const {
+bool Instance::isTailInSight(int imgH, int imgW, const ArrayXb &stackMask) const {
     // 1. 자동차 맞는지
     if (!isCar())
         return false;
@@ -169,21 +169,57 @@ bool Instance::isTailInSight(int imgH, int imgW, const MatrixXXb &stackMask) con
         return false;
 
     // 4. tail projection의 size가 충분히 큰지.
-    const MatrixXXb tailMask = getMask(imgH, imgW, true);
-    const int tailMaskSize = tailMask.count();
+    auto [tailU, tailV, tailW, tailH] = getTailRect(imgH, imgW, 0.0);
+    const int tailMaskSize = tailW * tailH;
     mDisplayStr += std::to_string(tailMaskSize) + " ";
     if (tailMaskSize < 50 * 50)
         return false;
 
     // 5. 전방의 물체에 가리진 않는지.
-    const int intersection = (stackMask && tailMask).count();
+    const int intersection = stackMask.segment(tailU, tailW).count();
     mDisplayStr += std::to_string(intersection) + " ";
-    if (static_cast<float>(intersection) / static_cast<float>(tailMaskSize) > 0.1)
+    if (static_cast<float>(intersection) / static_cast<float>(tailW) > 0.1)
         return false;
 
     return true;
 };
 
+std::tuple<int, int, int, int> Instance::getTailRect(int imgH, int imgW, float padRatio) const {
+    const Eigen::Matrix<float, 2, 4> tailCorners2D = mCorners2D.leftCols(4);
+    const Eigen::Matrix<float, 1, 4> tailCornersU = tailCorners2D.row(0);
+    const Eigen::Matrix<float, 1, 4> tailCornersV = tailCorners2D.row(1);
+
+    const float minU = tailCornersU.minCoeff();
+    const float maxU = tailCornersU.maxCoeff();
+    const float minV = tailCornersV.minCoeff();
+    const float maxV = tailCornersV.maxCoeff();
+    const float padW = (maxU - minU) * padRatio;
+    const float padH = (maxV - minV) * padRatio;
+
+    const int minU_int = std::max(static_cast<int>(minU - padW + 0.5), 0);
+    const int maxU_int = std::min(static_cast<int>(maxU + padW + 0.5), imgW - 1);
+    const int minV_int = std::max(static_cast<int>(minV - padH + 0.5), 0);
+    const int maxV_int = std::min(static_cast<int>(maxV + padH + 0.5), imgH - 1);
+
+    // U, V, W, H
+    return {minU_int, minV_int, maxU_int - minU_int, maxV_int - minV_int};
+}
+
+std::tuple<int, int> Instance::getProjectionLR(int imgW) const {
+    const Eigen::Matrix<float, 1, 8> cornersU = mCorners2D.row(0);
+
+    const float minU = cornersU.minCoeff();
+    const float maxU = cornersU.maxCoeff();
+
+    const int minU_int = std::max(static_cast<int>(minU), 0);
+    const int maxU_int = std::min(static_cast<int>(maxU), imgW - 1);
+
+    return {minU_int, maxU_int};
+}
+
+// ----------------
+// Deprecated
+// ----------------
 MatrixXXb Instance::getMask(int imgH, int imgW, bool tailOnly) const {
 
     cv::Mat mask{imgH, imgW, CV_8UC1, cv::Scalar(0)};
@@ -203,24 +239,4 @@ MatrixXXb Instance::getMask(int imgH, int imgW, bool tailOnly) const {
     MatrixXXb maskEigen;
     cv::cv2eigen(mask, maskEigen);
     return maskEigen;
-}
-
-cv::Rect Instance::getTailRect(int imgH, int imgW) const {
-    const Eigen::Matrix<float, 2, 4> tailCorners2D = mCorners2D.leftCols(4);
-    const Eigen::Matrix<float, 1, 4> tailCornersU = tailCorners2D.row(0);
-    const Eigen::Matrix<float, 1, 4> tailCornersV = tailCorners2D.row(1);
-
-    const float minU = tailCornersU.minCoeff();
-    const float maxU = tailCornersU.maxCoeff();
-    const float minV = tailCornersV.minCoeff();
-    const float maxV = tailCornersV.maxCoeff();
-    const float padW = (maxU - minU) / 2;
-    const float padH = (maxV - minV) / 2;
-
-    const int minU_int = std::max(static_cast<int>(minU - padW + 0.5), 0);
-    const int maxU_int = std::min(static_cast<int>(maxU + padW + 0.5), imgW - 1);
-    const int minV_int = std::max(static_cast<int>(minV - padH + 0.5), 0);
-    const int maxV_int = std::min(static_cast<int>(maxV + padH + 0.5), imgH - 1);
-
-    return cv::Rect{minU_int, minV_int, maxU_int - minU_int, maxV_int - minV_int};
 }

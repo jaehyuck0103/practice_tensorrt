@@ -23,7 +23,7 @@ TailRecogManager::TailRecogManager() {
 TailRecogManager::~TailRecogManager() = default;
 
 std::tuple<std::vector<cv::Rect>, std::vector<Instance>>
-TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, MatrixXXb &stackMask) {
+TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec) {
     // image 내에 약간이라도 projection되는 instance만 남김.
     instVec.erase(
         std::remove_if(
@@ -40,20 +40,21 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, MatrixX
     // 가림이 없는 tail view를 가지는 instances 추출.
     // 가까이 있는 instance부터 stackMask에 projection 해나간다.
     std::vector<Instance> validTailInsts;
-    // MatrixXXb stackMask = MatrixXXb::Zero(img.rows, img.cols);
+    ArrayXb stackMask = ArrayXb::Zero(img.cols);
     for (const auto &eachInst : instVec) {
         if (eachInst.isTailInSight(img.rows, img.cols, stackMask)) {
             validTailInsts.push_back(eachInst);
         }
-        const MatrixXXb instMask = eachInst.getMask(img.rows, img.cols, false);
-        stackMask = stackMask || instMask;
+        auto [u_min, u_max] = eachInst.getProjectionLR(img.cols);
+        stackMask.segment(u_min, u_max - u_min + 1) = true;
     }
 
     // tail crop image들을 모아서 tensorrt inference
     std::vector<cv::Rect> croppedRois;
     std::vector<cv::Mat> croppedImgs;
     for (auto &inst : validTailInsts) {
-        cv::Rect roi = inst.getTailRect(img.rows, img.cols);
+        auto [tailU, tailV, tailW, tailH] = inst.getTailRect(img.rows, img.cols, 0.5);
+        cv::Rect roi{tailU, tailV, tailW, tailH};
         croppedRois.push_back(roi);
         cv::Mat croppedImg = img(roi);
         cv::resize(croppedImg, croppedImg, cv::Size{RegCfg::inW, RegCfg::inH});
@@ -131,6 +132,7 @@ std::tuple<std::vector<int>, std::vector<int>> TailRecogManager::infer() {
     }
     std::vector<int> inferredStates = mInferAgent->infer(inputFeats);
 
+    // track되는 대상이 infer 한계보다 많으면 문제 생길것 같은데?
     if (inferredTrackIds.size() != inferredStates.size()) {
         std::cout << "inferredTrackIds and inferredStates should have same size" << std::endl;
         exit(1);
