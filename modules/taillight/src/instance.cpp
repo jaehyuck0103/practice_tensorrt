@@ -142,7 +142,7 @@ void Instance::renderToImg(cv::Mat &img) const {
     cv::putText(img, mDisplayStr, strPos, cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 255), 2);
 }
 
-bool Instance::isTailInSight(int imgH, int imgW, const ArrayXXb &stackMask) const {
+bool Instance::isTailInSight(int imgH, int imgW, const ArrayXXb &occMask) const {
     // 1. 자동차 맞는지
     if (!isCar())
         return false;
@@ -176,7 +176,7 @@ bool Instance::isTailInSight(int imgH, int imgW, const ArrayXXb &stackMask) cons
         return false;
 
     // 5. 전방의 물체에 가리진 않는지.
-    const int intersection = stackMask.block(tailV, tailU, tailH, tailW).count();
+    const int intersection = occMask.block(tailV, tailU, tailH, tailW).count();
     mDisplayStr += std::to_string(intersection) + " ";
     if (static_cast<float>(intersection) / static_cast<float>(tailMaskSize) > 0.1)
         return false;

@@ -82,8 +82,8 @@ int main(int argc, char **argv) {
         // Run Manager
         // -------------------------
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        ArrayXXb stackMask = ArrayXXb::Zero(img.rows, img.cols);
-        auto [regressedRois, validTailInsts] = tailRecogManager.updateDet(img, instVec, stackMask);
+        ArrayXXb occMask = ArrayXXb::Zero(img.rows, img.cols);
+        auto [regressedRois, validTailInsts] = tailRecogManager.updateDet(img, instVec, occMask);
         auto [inferredTrackIds, inferredStates] = tailRecogManager.infer();
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
 
         // Mask: eigen -> opencv
         cv::Mat displayedMask;
-        Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> displayedMaskEigen = stackMask;
+        Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> displayedMaskEigen = occMask;
         cv::eigen2cv(displayedMaskEigen, displayedMask);
         displayedMask *= 255;
         cv::cvtColor(displayedMask, displayedMask, cv::COLOR_GRAY2BGR);
