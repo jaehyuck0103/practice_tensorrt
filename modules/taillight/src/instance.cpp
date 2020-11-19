@@ -142,7 +142,7 @@ void Instance::renderToImg(cv::Mat &img) const {
     cv::putText(img, mDisplayStr, strPos, cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 255), 2);
 }
 
-bool Instance::isTailInSight(int imgH, int imgW, const Eigen::ArrayXi &stackMask) const {
+bool Instance::isTailInSight(int imgH, int imgW, const ArrayXXb &stackMask) const {
     // 1. 자동차 맞는지
     if (!isCar())
         return false;
@@ -176,9 +176,9 @@ bool Instance::isTailInSight(int imgH, int imgW, const Eigen::ArrayXi &stackMask
         return false;
 
     // 5. 전방의 물체에 가리진 않는지.
-    const int intersection = stackMask.segment(tailU, tailW).count();
+    const int intersection = stackMask.block(tailV, tailU, tailH, tailW).count();
     mDisplayStr += std::to_string(intersection) + " ";
-    if (static_cast<float>(intersection) / static_cast<float>(tailW) > 0.1)
+    if (static_cast<float>(intersection) / static_cast<float>(tailMaskSize) > 0.1)
         return false;
 
     return true;
@@ -205,16 +205,22 @@ std::tuple<int, int, int, int> Instance::getTailRect(int imgH, int imgW, float p
     return {minU_int, minV_int, maxU_int - minU_int, maxV_int - minV_int};
 }
 
-std::tuple<int, int> Instance::getProjectionLR(int imgW) const {
+std::tuple<int, int, int, int> Instance::getBoundingRect(int imgH, int imgW) const {
     const Eigen::Matrix<float, 1, 8> cornersU = mCorners2D.row(0);
+    const Eigen::Matrix<float, 1, 8> cornersV = mCorners2D.row(1);
 
     const float minU = cornersU.minCoeff();
     const float maxU = cornersU.maxCoeff();
+    const float minV = cornersV.minCoeff();
+    const float maxV = cornersV.maxCoeff();
 
-    const int minU_int = std::max(static_cast<int>(minU), 0);
-    const int maxU_int = std::min(static_cast<int>(maxU), imgW - 1);
+    const int minU_int = std::max(static_cast<int>(minU + 0.5), 0);
+    const int maxU_int = std::min(static_cast<int>(maxU + 0.5), imgW - 1);
+    const int minV_int = std::max(static_cast<int>(minV + 0.5), 0);
+    const int maxV_int = std::min(static_cast<int>(maxV + 0.5), imgH - 1);
 
-    return {minU_int, maxU_int};
+    // U, V, W, H
+    return {minU_int, minV_int, maxU_int - minU_int, maxV_int - minV_int};
 }
 
 // ----------------

@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
         // Run Manager
         // -------------------------
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        Eigen::ArrayXi stackMask = Eigen::ArrayXi::Zero(img.cols);
+        ArrayXXb stackMask = ArrayXXb::Zero(img.rows, img.cols);
         auto [regressedRois, validTailInsts] = tailRecogManager.updateDet(img, instVec, stackMask);
         auto [inferredTrackIds, inferredStates] = tailRecogManager.infer();
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
@@ -117,13 +117,9 @@ int main(int argc, char **argv) {
 
         // Mask: eigen -> opencv
         cv::Mat displayedMask;
-        Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic> displayedMaskEigen =
-            Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic>::Zero(img.rows + 10, img.cols);
-        displayedMaskEigen.bottomRows(10).array().rowwise() =
-            stackMask.transpose().cast<uint8_t>();
-        displayedMaskEigen.bottomRows(10).array() *=
-            static_cast<uint8_t>(255 / (stackMask.maxCoeff() + 0.00001));
+        Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> displayedMaskEigen = stackMask;
         cv::eigen2cv(displayedMaskEigen, displayedMask);
+        displayedMask *= 255;
         cv::cvtColor(displayedMask, displayedMask, cv::COLOR_GRAY2BGR);
 
         // Visualize regressedTails to Mask

@@ -6,7 +6,7 @@
 #include <numeric>
 
 typedef Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> MatrixXXb;
-typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrayXb;
+typedef Eigen::Array<bool, Eigen::Dynamic, Eigen::Dynamic> ArrayXXb;
 
 struct CalibParams {
     const Eigen::Matrix4f RT;
