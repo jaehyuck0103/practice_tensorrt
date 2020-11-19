@@ -14,7 +14,7 @@ class TailRecogManager {
     std::tuple<std::vector<cv::Rect>, std::vector<Instance>>
     updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXXb &occMask);
 
-    std::tuple<std::vector<int>, std::vector<int>> infer();
+    std::map<int, int> infer();
 
   private:
     std::list<TrackedInst> mTrackedInsts;

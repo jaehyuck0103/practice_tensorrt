@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
         ArrayXXb occMask = ArrayXXb::Zero(img.rows, img.cols);
         auto [regressedRois, validTailInsts] = tailRecogManager.updateDet(img, instVec, occMask);
-        auto [inferredTrackIds, inferredStates] = tailRecogManager.infer();
+        std::map<int, int> trackId_to_state = tailRecogManager.infer();
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
         auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
         std::cout << "processing_time (micro sec): " << duration << std::endl;
@@ -93,8 +93,8 @@ int main(int argc, char **argv) {
         // Write results to json
         // ------------------------
         json jsonInferStates = json::object();
-        for (size_t i = 0; i < inferredTrackIds.size(); ++i) {
-            jsonInferStates[std::to_string(inferredTrackIds.at(i))] = inferredStates.at(i);
+        for (const auto &[id, state] : trackId_to_state) {
+            jsonInferStates[std::to_string(id)] = state;
         }
 
         json jsonRois = json::object();
@@ -133,9 +133,8 @@ int main(int argc, char **argv) {
             cv::imwrite("Debug/" + std::to_string(frameIdx) + "mask.png", displayedMask);
         } else {
             // 0.7초 이전 state이지만 출력.
-            for (size_t i = 0; i < inferredTrackIds.size(); ++i) {
-                int trackId = inferredTrackIds.at(i);
-                std::string state_str = STATES.at(inferredStates.at(i));
+            for (const auto &[trackId, state] : trackId_to_state) {
+                std::string state_str = STATES.at(state);
                 for (size_t j = 0; j < regressedRois.size(); ++j) {
                     if (validTailInsts[j].trackId() == trackId) {
                         cv::putText(

@@ -7,7 +7,7 @@ class CNN3DInferAgent : public BaseInferAgent {
 
   public:
     CNN3DInferAgent(const InferenceParams &params);
-    std::vector<int> infer(const std::list<std::vector<float>> &encodedTailSeqs);
+    std::vector<int> infer(const std::vector<std::vector<float>> &encodedTailSeqs);
 
   private:
 };
@@ -26,7 +26,7 @@ inline CNN3DInferAgent::CNN3DInferAgent(const InferenceParams &params) : BaseInf
 }
 
 inline std::vector<int>
-CNN3DInferAgent::infer(const std::list<std::vector<float>> &encodedTailSeqs) {
+CNN3DInferAgent::infer(const std::vector<std::vector<float>> &encodedTailSeqs) {
     std::vector<int> result;
     if (encodedTailSeqs.empty()) {
         return result;
@@ -47,6 +47,7 @@ CNN3DInferAgent::infer(const std::list<std::vector<float>> &encodedTailSeqs) {
 
         hostInBuffer.insert(hostInBuffer.end(), elem.begin(), elem.end());
     }
+    // 혹시 realB보다 오버해서 push되어도, 여기서 resize하기 때문에 괜찮다.
     hostInBuffer.resize(CNN3DCfg::inNumEl, 0.0f);
 
     // ----------------------

@@ -66,7 +66,7 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
 
     // Collect RegressedRois
     std::vector<cv::Rect> regressedRois;
-    for (size_t i = 0; i < croppedRois.size(); ++i) {
+    for (size_t i = 0; i < regressCoords.size(); ++i) {
         cv::Rect regressedRoi{
             static_cast<int>(croppedRois[i].x + regressCoords[i][0] * croppedRois[i].width),
             static_cast<int>(croppedRois[i].y + regressCoords[i][1] * croppedRois[i].height),
@@ -77,9 +77,9 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
 
     // Collect Regressed Imgs
     std::vector<cv::Mat> regressedImgs;
-    for (size_t i = 0; i < regressedRois.size(); ++i) {
+    for (const auto &eachRoi : regressedRois) {
         cv::Mat regressedImg;
-        cv::resize(img(regressedRois[i]), regressedImg, cv::Size{UNetCfg::inW, UNetCfg::inH});
+        cv::resize(img(eachRoi), regressedImg, cv::Size{UNetCfg::inW, UNetCfg::inH});
 
         cv::cvtColor(regressedImg, regressedImg, cv::COLOR_BGR2RGB);
         regressedImg.convertTo(regressedImg, CV_32FC3);
@@ -116,8 +116,8 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
     return {regressedRois, validTailInsts};
 }
 
-std::tuple<std::vector<int>, std::vector<int>> TailRecogManager::infer() {
-    std::list<std::vector<float>> inputFeats;
+std::map<int, int> TailRecogManager::infer() {
+    std::vector<std::vector<float>> inputFeats;
     std::vector<int> inferredTrackIds;
     for (const auto &elem : mTrackedInsts) {
         if (elem.canInfered()) {
@@ -127,10 +127,16 @@ std::tuple<std::vector<int>, std::vector<int>> TailRecogManager::infer() {
     }
     std::vector<int> inferredStates = mInferAgent->infer(inputFeats);
 
-    // track되는 대상이 infer 한계보다 많으면 문제 생길것 같은데?
-    if (inferredTrackIds.size() != inferredStates.size()) {
+    if ((inferredTrackIds.size() != inferredStates.size()) &&
+        (inferredTrackIds.size() <= CNN3DCfg::inB)) {
         std::cout << "inferredTrackIds and inferredStates should have same size" << std::endl;
         exit(1);
     }
-    return {inferredTrackIds, inferredStates};
+
+    std::map<int, int> trackId_to_state;
+    for (size_t i = 0; i < inferredStates.size(); ++i) {
+        trackId_to_state.emplace(inferredTrackIds[i], inferredStates[i]);
+    }
+
+    return trackId_to_state;
 }
