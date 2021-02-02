@@ -15,6 +15,8 @@
 
 namespace fs = std::experimental::filesystem;
 namespace chrono = std::chrono;
+typedef chrono::high_resolution_clock hrc;
+typedef chrono::duration<double, std::milli> duration_ms;
 
 void benchmark(const std::string &trtFilePath) {
     // ------------
@@ -54,38 +56,60 @@ void benchmark(const std::string &trtFilePath) {
     UniquePtrTRT<nvinfer1::IExecutionContext> context =
         UniquePtrTRT<nvinfer1::IExecutionContext>(engine->createExecutionContext());
 
-    // ------------
-    // Run dummy
-    // ------------
-
-    // Put dummy inputs (Host -> Device)
-    for (int idx = 0; idx < engine->getNbBindings(); idx++) {
-        if (engine->bindingIsInput(idx)) {
-            int vol = volume(engine->getBindingDimensions(idx));
-            std::vector<float> hostInBuffer(vol, 0.0);
-            for (int bufIdx = 0; bufIdx < vol; ++bufIdx) {
-                if (bufIdx % 2 == 0) {
-                    hostInBuffer[bufIdx] = 1.0;
-                } else {
-                    hostInBuffer[bufIdx] = -1.0;
-                }
-            }
-            bufManager->memcpy(true, engine->getBindingName(idx), hostInBuffer.data());
-        }
-    }
-
     // Iterate Iteration
     for (int iter = 0; iter < 100; ++iter) {
-        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+
+        std::cout << std::endl;
+        const hrc::time_point t1_total = hrc::now();
+
+        // Upload dummy inputs (Host -> Device)
+        for (int idx = 0; idx < engine->getNbBindings(); idx++) {
+            if (engine->bindingIsInput(idx)) {
+
+                const hrc::time_point t1_dummy = hrc::now();
+                int vol = volume(engine->getBindingDimensions(idx));
+                std::cout << "upload vol: " << vol << std::endl;
+                std::vector<float> hostInBuffer(vol, 0.0);
+                for (int bufIdx = 0; bufIdx < vol; ++bufIdx) {
+                    if (bufIdx % 2 == 0) {
+                        hostInBuffer[bufIdx] = 1.0;
+                    } else {
+                        hostInBuffer[bufIdx] = -1.0;
+                    }
+                }
+                const hrc::time_point t2_dummy = hrc::now();
+                const duration_ms duration_dummy = t2_dummy - t1_dummy;
+                std::cout << "dummy_time (ms): " << duration_dummy.count() << std::endl;
+
+                const hrc::time_point t1_upload = hrc::now();
+                bufManager->memcpy(true, engine->getBindingName(idx), hostInBuffer.data());
+                const hrc::time_point t2_upload = hrc::now();
+                const duration_ms duration_upload = t2_upload - t1_upload;
+                std::cout << "upload_time (ms): " << duration_upload.count() << std::endl;
+            }
+        }
+
         // Execute
+        const hrc::time_point t1_exec = hrc::now();
         std::vector<void *> buffers = bufManager->getDeviceBindings();
         context->executeV2(buffers.data());
+        const hrc::time_point t2_exec = hrc::now();
+        const duration_ms duration_exec = t2_exec - t1_exec;
+        std::cout << "exec_time (ms): " << duration_exec.count() << std::endl;
+
         // Show dummy outputs (Device -> Host)
+        const hrc::time_point t1_download_all = hrc::now();
         for (int idx = 0; idx < engine->getNbBindings(); idx++) {
             if (!engine->bindingIsInput(idx)) {
                 int vol = volume(engine->getBindingDimensions(idx));
+                std::cout << "download vol: " << vol << std::endl;
                 std::vector<float> hostOutBuffer(vol);
+
+                const hrc::time_point t1_download = hrc::now();
                 bufManager->memcpy(false, engine->getBindingName(idx), hostOutBuffer.data());
+                const hrc::time_point t2_download = hrc::now();
+                const duration_ms duration_download = t2_download - t1_download;
+                std::cout << "download_time (ms): " << duration_download.count() << std::endl;
 
                 int printLen = std::min(int(hostOutBuffer.size()), 10);
                 for (int p = 0; p < printLen; ++p) {
@@ -94,9 +118,13 @@ void benchmark(const std::string &trtFilePath) {
                 std::cout << std::endl;
             }
         }
-        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-        auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
-        std::cout << "processing_time (micro sec): " << duration << std::endl;
+        const hrc::time_point t2_download_all = hrc::now();
+        const duration_ms duration_download_all = t2_download_all - t1_download_all;
+        std::cout << "download_all_time (ms): " << duration_download_all.count() << std::endl;
+
+        hrc::time_point t2_total = hrc::now();
+        const duration_ms duration_total = t2_total - t1_total;
+        std::cout << "total_time (ms): " << duration_total.count() << std::endl;
     }
 }
 

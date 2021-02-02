@@ -1,4 +1,4 @@
 ../OnnxMNIST/data/mnist.onnx
 ~/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/tail_det.onnx
-~/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_3Dconv.onnx
 ~/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_unet.onnx
+~/Projects/ETRI_TailLightRecognition/scripts/onnx/Output/taillight_3Dconv.onnx
