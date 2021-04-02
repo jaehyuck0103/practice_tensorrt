@@ -57,7 +57,7 @@ void benchmark(const std::string &trtFilePath) {
         UniquePtrTRT<nvinfer1::IExecutionContext>(engine->createExecutionContext());
 
     // Iterate Iteration
-    for (int iter = 0; iter < 100; ++iter) {
+    for (int iter = 0; iter < 10; ++iter) {
 
         std::cout << std::endl;
         const hrc::time_point t1_total = hrc::now();
