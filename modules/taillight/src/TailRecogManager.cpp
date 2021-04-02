@@ -1,7 +1,9 @@
-#include "taillight/TailRecogManager.hpp"
 #include "infer-agents/CNN3DInferAgent.hpp"
 #include "infer-agents/RegressInferAgent.hpp"
 #include "infer-agents/UNetInferAgent.hpp"
+#include "taillight/TailRecogManager.hpp"
+#include <chrono>
+namespace chrono = std::chrono;
 
 TailRecogManager::TailRecogManager() {
     const std::string homeDir = std::getenv("HOME");
@@ -24,6 +26,7 @@ TailRecogManager::~TailRecogManager() = default;
 
 std::map<int, cv::Rect>
 TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXXb &occMask) {
+    chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
     // image 내에 약간이라도 projection되는 instance만 남김.
     instVec.erase(
         std::remove_if(
@@ -62,8 +65,17 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
         croppedImg = croppedImg / 255.0f; // (0~255) -> (0~1)
         croppedImgs.push_back(croppedImg);
     }
-    std::vector<std::array<float, 4>> regressCoords = mRegressAgent->infer(croppedImgs);
+    chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+    std::cout << "processing_time_before1 (micro sec): "
+              << chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << std::endl;
 
+    t1 = chrono::high_resolution_clock::now();
+    std::vector<std::array<float, 4>> regressCoords = mRegressAgent->infer(croppedImgs);
+    t2 = chrono::high_resolution_clock::now();
+    std::cout << "processing_time_1 (micro sec): "
+              << chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << std::endl;
+
+    t1 = chrono::high_resolution_clock::now();
     // Collect RegressedRois
     std::vector<cv::Rect> regressedRois;
     for (size_t i = 0; i < regressCoords.size(); ++i) {
@@ -87,9 +99,17 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
         regressedImg = regressedImg / 255.0f; // (0~255) -> (0~1)
         regressedImgs.push_back(regressedImg);
     }
+    t2 = chrono::high_resolution_clock::now();
+    std::cout << "processing_time_1-2 (micro sec): "
+              << chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << std::endl;
     // unet inferece
+    t1 = chrono::high_resolution_clock::now();
     std::vector<std::vector<float>> encodedImgs = mUNetAgent->infer(regressedImgs);
+    t2 = chrono::high_resolution_clock::now();
+    std::cout << "processing_time_2 (micro sec): "
+              << chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << std::endl;
 
+    t1 = chrono::high_resolution_clock::now();
     // Tracker Update
     std::list<TrackerInput> trackerInputs;
     for (size_t i = 0; i < encodedImgs.size(); ++i) {
@@ -119,11 +139,15 @@ TailRecogManager::updateDet(cv::Mat img, std::vector<Instance> &instVec, ArrayXX
     for (size_t i = 0; i < regressedRois.size(); ++i) {
         trackId_to_regressedRoi.emplace(validTailInsts[i].trackId(), regressedRois[i]);
     }
+    t2 = chrono::high_resolution_clock::now();
+    std::cout << "processing_time_2-3 (micro sec): "
+              << chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << std::endl;
 
     return trackId_to_regressedRoi;
 }
 
 std::map<int, int> TailRecogManager::infer() {
+    chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
     std::vector<std::vector<float>> inputFeats;
     std::vector<int> inferredTrackIds;
     for (const auto &elem : mTrackedInsts) {
@@ -132,7 +156,15 @@ std::map<int, int> TailRecogManager::infer() {
             inferredTrackIds.push_back(elem.trackId());
         }
     }
+    chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+    std::cout << "processing_time_2-3 (micro sec): "
+              << chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << std::endl;
+
+    t1 = chrono::high_resolution_clock::now();
     std::vector<int> inferredStates = mInferAgent->infer(inputFeats);
+    t2 = chrono::high_resolution_clock::now();
+    std::cout << "processing_time_3 (micro sec): "
+              << chrono::duration_cast<chrono::microseconds>(t2 - t1).count() << std::endl;
 
     if ((inferredTrackIds.size() != inferredStates.size()) &&
         (inferredTrackIds.size() <= CNN3DCfg::inB)) {
