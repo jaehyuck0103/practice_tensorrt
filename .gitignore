@@ -4,6 +4,7 @@ compile_commands.json
 __pycache__/
 /apps/taillight/scripts/*.json
 /apps/taillight/Debug/
+/apps/BuildOnly/scripts/onnx_models/
 *.avi
 *.trt
 

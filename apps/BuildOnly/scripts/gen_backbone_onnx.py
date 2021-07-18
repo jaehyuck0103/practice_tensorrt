@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime
+import timm
 import torch
 from torchvision import models
 
@@ -50,6 +51,12 @@ def gen_onnx(net, net_name, verbose=False):
 
 def main():
     ONNX_SAVE_ROOT.mkdir(parents=True, exist_ok=True)
+
+    # regnetx_002 (0.59~0.60ms)
+    gen_onnx(timm.create_model("regnetx_002", pretrained=True), "regnetx_002")
+
+    # GPU-Efficient ResNet (0.74ms)
+    gen_onnx(timm.create_model("gernet_s", pretrained=True), "gernet_s")
 
     # VGG11_bn (2.11ms)
     # gen_onnx(models.vgg11_bn().features, "VGG11_bn")
