@@ -1,19 +1,19 @@
-#include <algorithm>
-#include <chrono>
-#include <experimental/filesystem> // gcc 8부터 experimental 뗄 수 있다. CMAKE의 link도 나중에 같이 떼주도록 하자.
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <vector>
+#include "trt_utils/bufferManager.h"
+#include "trt_utils/common.h"
 
 #include <NvInfer.h>
 #include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include "trt_utils/bufferManager.h"
-#include "trt_utils/common.h"
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 namespace chrono = std::chrono;
 typedef chrono::high_resolution_clock hrc;
 typedef chrono::duration<double, std::milli> duration_ms;

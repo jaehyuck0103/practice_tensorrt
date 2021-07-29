@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.17)
 
 project(my_trt)
 
@@ -10,24 +10,21 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra") # -Werror
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_VERBOSE_MAKEFILE true)
 
-find_package(OpenCV REQUIRED PATHS $ENV{HOME}/Utils/opencv/build)
+find_package(CUDAToolkit)
 
-include_directories(/usr/local/cuda/include)
-include_directories($ENV{HOME}/Utils/TensorRT-7.2.3.4/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(third_party/eigen-3.3.8)
-include_directories(third_party/nlohmann_json-3.9.1/include)
-include_directories(third_party/toml11-3.6.0)
+set(TRT_ROOT_DIR "$ENV{HOME}/Utils/TensorRT-7.2.3.4")
+set(TRT_INCLUDE_DIR "${TRT_ROOT_DIR}/include")
+set(TRT_LIBRARY_DIR "${TRT_ROOT_DIR}/lib")
 
-link_directories(/usr/local/cuda/lib64)
-link_directories($ENV{HOME}/Utils/TensorRT-7.2.3.4/lib)
-
-add_subdirectory(./modules/taillight)
+add_library(my_trt INTERFACE)
+target_include_directories(my_trt INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include
+                                            ${TRT_INCLUDE_DIR})
+target_link_directories(my_trt INTERFACE ${TRT_LIBRARY_DIR})
+target_link_libraries(my_trt INTERFACE CUDA::cudart nvinfer nvonnxparser)
 
 add_subdirectory(./apps/OnnxMNIST)
 add_subdirectory(./apps/BuildOnly)
-add_subdirectory(./apps/taillight)
 add_subdirectory(./apps/MultiInput)

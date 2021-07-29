@@ -1,5 +1,5 @@
 add_executable(execMultiInput multiInput.cpp)
-target_link_libraries(execMultiInput cudart nvinfer nvonnxparser)
+target_link_libraries(execMultiInput PRIVATE my_trt)
 
 add_custom_target(
   runMultiInput

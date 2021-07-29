@@ -1,5 +1,5 @@
 add_executable(execOnnxMNIST sampleOnnx.cpp)
-target_link_libraries(execOnnxMNIST cudart nvinfer nvonnxparser)
+target_link_libraries(execOnnxMNIST PRIVATE my_trt)
 
 add_custom_target(
   runOnnxMNIST

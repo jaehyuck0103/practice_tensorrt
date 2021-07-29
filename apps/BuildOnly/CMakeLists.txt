@@ -1,8 +1,8 @@
 add_executable(execBuildOnly main.cpp)
-target_link_libraries(execBuildOnly cudart nvinfer nvonnxparser stdc++fs)
+target_link_libraries(execBuildOnly PRIVATE my_trt)
 
 add_executable(execBenchmark benchmark.cpp)
-target_link_libraries(execBenchmark cudart nvinfer nvonnxparser stdc++fs)
+target_link_libraries(execBenchmark PRIVATE my_trt)
 
 add_custom_target(
   runBuildOnly
