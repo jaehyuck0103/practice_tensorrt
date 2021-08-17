@@ -20,11 +20,14 @@ set(TRT_INCLUDE_DIR "${TRT_ROOT_DIR}/include")
 set(TRT_LIBRARY_DIR "${TRT_ROOT_DIR}/lib")
 
 add_library(my_trt INTERFACE)
+
 target_include_directories(my_trt INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include
                                             ${TRT_INCLUDE_DIR})
 target_link_directories(my_trt INTERFACE ${TRT_LIBRARY_DIR})
 target_link_libraries(my_trt INTERFACE CUDA::cudart nvinfer nvonnxparser)
 
-add_subdirectory(./apps/OnnxMNIST)
-add_subdirectory(./apps/BuildOnly)
-add_subdirectory(./apps/MultiInput)
+if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+  add_subdirectory(apps/OnnxMNIST)
+  add_subdirectory(apps/BuildOnly)
+  add_subdirectory(apps/MultiInput)
+endif()
