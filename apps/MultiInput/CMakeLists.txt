@@ -1,5 +1,5 @@
 add_executable(execMultiInput multiInput.cpp)
-target_link_libraries(execMultiInput PRIVATE my_trt)
+target_link_libraries(execMultiInput PRIVATE trt_oss)
 
 add_custom_target(
   runMultiInput

@@ -1,5 +1,5 @@
 add_executable(execOnnxMNIST sampleOnnx.cpp)
-target_link_libraries(execOnnxMNIST PRIVATE my_trt)
+target_link_libraries(execOnnxMNIST PRIVATE trt_oss)
 
 add_custom_target(
   runOnnxMNIST

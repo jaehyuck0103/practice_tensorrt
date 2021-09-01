@@ -1,4 +1,6 @@
-#include "trt_utils/common.h"
+#include "TensorRT-OSS/samples/common/buffers.h"
+#include "TensorRT-OSS/samples/common/common.h"
+#include "TensorRT-OSS/samples/common/sampleEngines.h"
 
 #include <NvInfer.h>
 #include <NvOnnxParser.h>
@@ -19,56 +21,81 @@ struct SampleParams {
     std::string engineFilePath;
 };
 
-void build(const SampleParams &params) {
+bool build(const SampleParams &params) {
     // ----------------------------
     // Create builder and network
     // ----------------------------
-    auto builder = UniquePtrTRT<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger));
+    auto builder = std::unique_ptr<nvinfer1::IBuilder>(
+        nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
+
+    if (!builder) {
+        return false;
+    }
+
     const auto explicitBatch =
         1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     auto network =
-        UniquePtrTRT<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+        std::unique_ptr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+    if (!network) {
+        return false;
+    }
 
-    // -------------------
-    // Create ONNX parser
-    // -------------------
-    auto parser =
-        UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile(
-        params.onnxFilePath.c_str(),
-        static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
-
-    // -------------
-    // Build engine
-    // -------------
-    auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    // ------------------------
+    // Create builder config
+    // ------------------------
+    auto config = std::unique_ptr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    if (!config) {
+        return false;
+    }
     config->setMaxWorkspaceSize(1 << 30);
     if (params.fp16) {
         config->setFlag(nvinfer1::BuilderFlag::kFP16);
     }
-    /*
-    builder->setMaxBatchSize(params.batchSize);
-    if (params.int8)
-    {
-        config->setFlag(nvinfer1::BuilderFlag::kINT8);
-        samplesCommon::setAllTensorScales(network.get(), 127.0f, 127.0f);
+
+    // -------------------
+    // Create ONNX parser
+    // -------------------
+    auto parser = std::unique_ptr<nvonnxparser::IParser>(
+        nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
+    if (!parser) {
+        return false;
     }
-    samplesCommon::enableDLA(builder.get(), config.get(), params.dlaCore);
-    */
+
+    auto parsed = parser->parseFromFile(
+        params.onnxFilePath.c_str(),
+        static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
+    if (!parsed) {
+        return false;
+    }
+
+    // -------------
+    // Build engine
+    // -------------
+    std::unique_ptr<nvinfer1::IHostMemory> plan{
+        builder->buildSerializedNetwork(*network, *config)};
+    if (!plan) {
+        return false;
+    }
+
+    std::unique_ptr<nvinfer1::IRuntime> runtime{
+        nvinfer1::createInferRuntime(sample::gLogger.getTRTLogger())};
+    if (!runtime) {
+        return false;
+    }
 
     std::shared_ptr<nvinfer1::ICudaEngine> engine{nullptr};
     engine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config),
-        InferDeleter());
+        runtime->deserializeCudaEngine(plan->data(), plan->size()));
+    if (!engine) {
+        return false;
+    }
 
     // -----------------
-    // Serialize engine
+    // Save engine
     // -----------------
-    UniquePtrTRT<nvinfer1::IHostMemory> serializedEngine{engine->serialize()};
-
-    std::string engineFilePath = fs::path{params.onnxFilePath}.replace_extension(".trt").string();
-    std::ofstream engineFile(engineFilePath, std::ios::binary);
-    engineFile.write(static_cast<char *>(serializedEngine->data()), serializedEngine->size());
+    const std::string engineFilePath =
+        fs::path{params.onnxFilePath}.replace_extension(".trt").string();
+    return sample::saveEngine(*engine, engineFilePath, std::cout);
 }
 
 int main() {

@@ -1,3 +1,9 @@
+#include "TensorRT-OSS/samples/common/common.h"
+
+#include <NvInfer.h>
+#include <NvOnnxParser.h>
+#include <cuda_runtime_api.h>
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -5,53 +11,85 @@
 #include <string>
 #include <vector>
 
-#include <NvInfer.h>
-#include <NvOnnxParser.h>
-#include <cuda_runtime_api.h>
-
-#include "trt_utils/common.h"
-
 class SampleMultiInput {
   public:
-    void build();
+    bool build();
     void infer();
 
   private:
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
-    UniquePtrTRT<nvinfer1::IExecutionContext> mContext{nullptr};
+    std::unique_ptr<nvinfer1::IExecutionContext> mContext{nullptr};
 };
 
-void SampleMultiInput::build() {
+bool SampleMultiInput::build() {
     // ----------------------------
     // Create builder and network
     // ----------------------------
-    auto builder = UniquePtrTRT<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger));
+    auto builder = std::unique_ptr<nvinfer1::IBuilder>(
+        nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
+
+    if (!builder) {
+        return false;
+    }
+
     const auto explicitBatch =
         1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     auto network =
-        UniquePtrTRT<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+        std::unique_ptr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+    if (!network) {
+        return false;
+    }
+
+    // ------------------------
+    // Create builder config
+    // ------------------------
+    auto config = std::unique_ptr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    if (!config) {
+        return false;
+    }
 
     // -------------------
     // Create ONNX parser
     // -------------------
-    auto parser =
-        UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile(
+    auto parser = std::unique_ptr<nvonnxparser::IParser>(
+        nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
+    if (!parser) {
+        return false;
+    }
+    auto parsed = parser->parseFromFile(
         "./multi_input.onnx",
         static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
+    if (!parsed) {
+        return false;
+    }
 
     // -------------
     // Build engine
     // -------------
-    auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    std::unique_ptr<nvinfer1::IHostMemory> plan{
+        builder->buildSerializedNetwork(*network, *config)};
+    if (!plan) {
+        return false;
+    }
+
+    std::unique_ptr<nvinfer1::IRuntime> runtime{
+        nvinfer1::createInferRuntime(sample::gLogger.getTRTLogger())};
+    if (!runtime) {
+        return false;
+    }
+
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config),
-        InferDeleter());
+        runtime->deserializeCudaEngine(plan->data(), plan->size()));
+    if (!mEngine) {
+        return false;
+    }
 
     // ---------------
     // Create context
     // ---------------
-    mContext = UniquePtrTRT<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    mContext = std::unique_ptr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+
+    return true;
 }
 
 void SampleMultiInput::infer() {

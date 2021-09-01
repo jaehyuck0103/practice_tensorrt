@@ -1,15 +1,16 @@
+#include "TensorRT-OSS/samples/common/buffers.h"
+#include "TensorRT-OSS/samples/common/common.h"
+
+#include <NvInfer.h>
+#include <NvOnnxParser.h>
+#include <cuda_runtime_api.h>
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <NvInfer.h>
-#include <NvOnnxParser.h>
-#include <cuda_runtime_api.h>
-
-#include "trt_utils/bufferManager.h"
 
 struct SampleParams {
     bool int8{false}; //!< Allow runnning the network in Int8 mode.
@@ -20,82 +21,110 @@ struct SampleParams {
     std::string inputFilePath;
 };
 
-void readPGMFile(const std::string &fileName, uint8_t *buffer, int inH, int inW) {
-    std::ifstream infile(fileName, std::ifstream::binary);
-    if (!infile.is_open()) {
-        std::cout << "Attempting to read from a file that is not open." << std::endl;
-        exit(1);
-    }
-    std::string magic, h, w, max;
-    infile >> magic >> h >> w >> max;
-    infile.seekg(1, infile.cur);
-    infile.read(reinterpret_cast<char *>(buffer), inH * inW);
-}
-
 class SampleOnnxMNIST {
 
   public:
     SampleOnnxMNIST(const SampleParams &params) : mParams(params) {}
 
-    void build();
+    bool build();
     void infer();
 
   private:
     SampleParams mParams;
 
-    std::unique_ptr<BufferManager> mBufManager{nullptr};
+    std::unique_ptr<samplesCommon::BufferManager> mBufManager{nullptr};
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
-    UniquePtrTRT<nvinfer1::IExecutionContext> mContext{nullptr};
+    std::unique_ptr<nvinfer1::IExecutionContext> mContext{nullptr};
 };
 
-void SampleOnnxMNIST::build() {
+bool SampleOnnxMNIST::build() {
     // ----------------------------
     // Create builder and network
     // ----------------------------
-    auto builder = UniquePtrTRT<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger));
+    auto builder = std::unique_ptr<nvinfer1::IBuilder>(
+        nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
+
+    if (!builder) {
+        return false;
+    }
+
     const auto explicitBatch =
         1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     auto network =
-        UniquePtrTRT<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+        std::unique_ptr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+    if (!network) {
+        return false;
+    }
+
+    // ------------------------
+    // Create builder config
+    // ------------------------
+    auto config = std::unique_ptr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    if (!config) {
+        return false;
+    }
+    config->setFlag(nvinfer1::BuilderFlag::kFP16);
+    /*
+    config->setMaxWorkspaceSize(16_MiB);
+    if (mParams.fp16) {
+        config->setFlag(BuilderFlag::kFP16);
+    }
+    if (mParams.int8) {
+        config->setFlag(BuilderFlag::kINT8);
+        samplesCommon::setAllDynamicRanges(network.get(), 127.0f, 127.0f);
+    }
+
+    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
+    */
 
     // -------------------
     // Create ONNX parser
     // -------------------
-    auto parser =
-        UniquePtrTRT<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger));
-    parser->parseFromFile(
+    auto parser = std::unique_ptr<nvonnxparser::IParser>(
+        nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
+    if (!parser) {
+        return false;
+    }
+
+    auto parsed = parser->parseFromFile(
         mParams.onnxFilePath.c_str(),
         static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
+    if (!parsed) {
+        return false;
+    }
 
     // -------------
     // Build engine
     // -------------
-    auto config = UniquePtrTRT<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-    /*
-    builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(1 << 30);
-    if (mParams.fp16) { config->setFlag(nvinfer1::BuilderFlag::kFP16); }
-    if (mParams.int8)
-    {
-        config->setFlag(nvinfer1::BuilderFlag::kINT8);
-        samplesCommon::setAllTensorScales(network.get(), 127.0f, 127.0f);
+    std::unique_ptr<nvinfer1::IHostMemory> plan{
+        builder->buildSerializedNetwork(*network, *config)};
+    if (!plan) {
+        return false;
     }
-    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
-    */
+
+    std::unique_ptr<nvinfer1::IRuntime> runtime{
+        nvinfer1::createInferRuntime(sample::gLogger.getTRTLogger())};
+    if (!runtime) {
+        return false;
+    }
 
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config),
-        InferDeleter());
+        runtime->deserializeCudaEngine(plan->data(), plan->size()));
+    if (!mEngine) {
+        return false;
+    }
 
     // -----------------------
     // Create buffer manager
     // -----------------------
-    mBufManager = std::make_unique<BufferManager>(mEngine);
+    mBufManager = std::make_unique<samplesCommon::BufferManager>(mEngine);
 
     // ---------------
     // Create context
     // ---------------
-    mContext = UniquePtrTRT<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    mContext = std::unique_ptr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+
+    return true;
 }
 
 void SampleOnnxMNIST::infer() {
@@ -109,35 +138,31 @@ void SampleOnnxMNIST::infer() {
     std::vector<uint8_t> fileData(inputH * inputW);
     readPGMFile(mParams.inputFilePath, fileData.data(), inputH, inputW);
 
-    std::vector<float> hostInBuffer(inputH * inputW);
-    for (int i = 0; i < inputH * inputW; ++i) {
-        hostInBuffer[i] = 1.0 - float(fileData[i] / 255.0);
+    float *hostInBuffer =
+        static_cast<float *>(mBufManager->getHostBuffer(mParams.inputTensorName));
+    for (int i = 0; i < inputH * inputW; i++) {
+        hostInBuffer[i] = 1.0 - fileData[i] / 255.0;
     }
 
     // ----------------------
     // Copy (Host -> Device)
     // ----------------------
-    mBufManager->memcpy(true, mParams.inputTensorName, hostInBuffer.data());
+    mBufManager->copyInputToDevice();
 
     // --------
     // Execute
     // --------
-    std::vector<void *> buffers = mBufManager->getDeviceBindings();
-    mContext->executeV2(buffers.data());
+    mContext->executeV2(mBufManager->getDeviceBindings().data());
 
     // ----------------------
     // Copy (Device -> Host)
     // ----------------------
-    std::vector<float> hostOutBuffer(10);
-    mBufManager->memcpy(false, mParams.outputTensorName, hostOutBuffer.data());
+    mBufManager->copyOutputToHost();
 
     // -------------
     // Print Result
     // -------------
-    std::cout << "Result" << std::endl;
-    for (const auto &elem : hostOutBuffer) {
-        std::cout << elem << std::endl;
-    }
+    mBufManager->dumpBuffer(std::cout, mParams.outputTensorName);
 }
 
 int main() {
