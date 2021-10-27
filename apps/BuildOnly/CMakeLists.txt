@@ -1,4 +1,4 @@
-add_executable(execBuildOnly main.cpp)
+add_executable(execBuildOnly buildOnly.cpp)
 target_link_libraries(execBuildOnly PRIVATE trt_oss)
 
 add_executable(execBenchmark benchmark.cpp)
