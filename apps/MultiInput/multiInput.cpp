@@ -1,13 +1,10 @@
 #include "TensorRT-OSS/samples/common/common.h"
+#include "TensorRT-OSS/samples/common/sampleEngines.h"
 
 #include <NvInfer.h>
-#include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include <cassert>
-#include <fstream>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -22,66 +19,26 @@ class SampleMultiInput {
 };
 
 bool SampleMultiInput::build() {
-    // ----------------------------
-    // Create builder and network
-    // ----------------------------
-    auto builder = std::unique_ptr<nvinfer1::IBuilder>(
-        nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
 
-    if (!builder) {
-        return false;
-    }
+    // ---------------
+    // Build Engine
+    // ---------------
+    {
+        sample::ModelOptions modelOption;
+        modelOption.baseModel.model = "./multi_input.onnx";
+        modelOption.baseModel.format = sample::ModelFormat::kONNX;
 
-    const auto explicitBatch =
-        1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network =
-        std::unique_ptr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
-    if (!network) {
-        return false;
-    }
+        sample::BuildOptions buildOption;
+        sample::SystemOptions sysOption;
 
-    // ------------------------
-    // Create builder config
-    // ------------------------
-    auto config = std::unique_ptr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-    if (!config) {
-        return false;
-    }
+        // Get Engine
+        sample::BuildEnvironment env;
+        getEngineBuildEnv(modelOption, buildOption, sysOption, env, std::cout);
 
-    // -------------------
-    // Create ONNX parser
-    // -------------------
-    auto parser = std::unique_ptr<nvonnxparser::IParser>(
-        nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
-    if (!parser) {
-        return false;
-    }
-    auto parsed = parser->parseFromFile(
-        "./multi_input.onnx",
-        static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
-    if (!parsed) {
-        return false;
-    }
+        mEngine = std::move(env.engine);
 
-    // -------------
-    // Build engine
-    // -------------
-    std::unique_ptr<nvinfer1::IHostMemory> plan{
-        builder->buildSerializedNetwork(*network, *config)};
-    if (!plan) {
-        return false;
-    }
-
-    std::unique_ptr<nvinfer1::IRuntime> runtime{
-        nvinfer1::createInferRuntime(sample::gLogger.getTRTLogger())};
-    if (!runtime) {
-        return false;
-    }
-
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(plan->data(), plan->size()));
-    if (!mEngine) {
-        return false;
+        // network released after parser! parser destructor depends on network.
+        env.parser = {};
     }
 
     // ---------------
@@ -96,12 +53,12 @@ void SampleMultiInput::infer() {
     // -------------------
     // Check Tensornames
     // -------------------
-    std::cout << std::endl << std::endl << "Check TensorNames" << std::endl;
+    std::cout << "\n\nCheck TensorNames\n";
     for (int i = 0; i < mEngine->getNbBindings(); i++) {
         std::string tensorType = mEngine->bindingIsInput(i) ? "input: " : "output: ";
-        std::cout << tensorType << mEngine->getBindingName(i) << std::endl;
+        std::cout << tensorType << mEngine->getBindingName(i) << "\n";
     }
-    std::cout << std::endl << std::endl;
+    std::cout << "\n\n";
 
     // -----------------------
     // Prepare Device Buffers
@@ -138,17 +95,17 @@ void SampleMultiInput::infer() {
     // -------------
     // Print Result
     // -------------
-    std::cout << "Input1" << std::endl;
+    std::cout << "Input1\n";
     for (const auto &elem : x1) {
-        std::cout << elem << std::endl;
+        std::cout << elem << "\n";
     }
-    std::cout << "Input2" << std::endl;
+    std::cout << "Input2\n";
     for (const auto &elem : x2) {
-        std::cout << elem << std::endl;
+        std::cout << elem << "\n";
     }
-    std::cout << "Result = Input1 + Input2" << std::endl;
+    std::cout << "Result = Input1 + Input2\n";
     for (const auto &elem : hostOutBuffer) {
-        std::cout << elem << std::endl;
+        std::cout << elem << "\n";
     }
 
     // --------

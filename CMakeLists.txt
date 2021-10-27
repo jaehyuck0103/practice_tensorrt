@@ -17,7 +17,7 @@ set(CMAKE_VERBOSE_MAKEFILE true)
 find_package(CUDAToolkit)
 
 # TensorRT
-set(TRT_ROOT_DIR "$ENV{HOME}/Utils/TensorRT-8.0.1.6")
+set(TRT_ROOT_DIR "$ENV{HOME}/Utils/TensorRT-8.2.0.6")
 
 add_library(trt INTERFACE)
 target_include_directories(trt INTERFACE ${TRT_ROOT_DIR}/include)
@@ -28,11 +28,14 @@ target_link_libraries(trt INTERFACE CUDA::cudart nvinfer nvparsers nvonnxparser)
 set(TRT_OSS_SAMPLES_COMMON_DIR
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/TensorRT-OSS/samples/common")
 
-add_library(trt_oss ${TRT_OSS_SAMPLES_COMMON_DIR}/logger.cpp
-                    ${TRT_OSS_SAMPLES_COMMON_DIR}/sampleEngines.cpp)
+add_library(
+  trt_oss
+  ${TRT_OSS_SAMPLES_COMMON_DIR}/logger.cpp
+  ${TRT_OSS_SAMPLES_COMMON_DIR}/sampleEngines.cpp
+  ${TRT_OSS_SAMPLES_COMMON_DIR}/sampleOptions.cpp)
 target_include_directories(trt_oss
                            INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
-target_link_libraries(trt_oss PUBLIC trt)
+target_link_libraries(trt_oss PUBLIC trt ${CMAKE_DL_LIBS})
 
 # Build Apps
 if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})

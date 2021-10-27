@@ -1,20 +1,15 @@
 #include "TensorRT-OSS/samples/common/buffers.h"
 #include "TensorRT-OSS/samples/common/common.h"
+#include "TensorRT-OSS/samples/common/sampleEngines.h"
 
 #include <NvInfer.h>
-#include <NvOnnxParser.h>
 #include <cuda_runtime_api.h>
 
-#include <cassert>
-#include <fstream>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 
 struct SampleParams {
-    bool int8{false}; //!< Allow runnning the network in Int8 mode.
-    bool fp16{false}; //!< Allow running the network in FP16 mode.
     std::string inputTensorName;
     std::string outputTensorName;
     std::string onnxFilePath;
@@ -32,86 +27,34 @@ class SampleOnnxMNIST {
   private:
     SampleParams mParams;
 
-    std::unique_ptr<samplesCommon::BufferManager> mBufManager{nullptr};
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr};
+    std::unique_ptr<samplesCommon::BufferManager> mBufManager{nullptr};
     std::unique_ptr<nvinfer1::IExecutionContext> mContext{nullptr};
 };
 
 bool SampleOnnxMNIST::build() {
-    // ----------------------------
-    // Create builder and network
-    // ----------------------------
-    auto builder = std::unique_ptr<nvinfer1::IBuilder>(
-        nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
 
-    if (!builder) {
-        return false;
-    }
+    {
+        sample::ModelOptions modelOption;
+        modelOption.baseModel.model = mParams.onnxFilePath;
+        modelOption.baseModel.format = sample::ModelFormat::kONNX;
 
-    const auto explicitBatch =
-        1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network =
-        std::unique_ptr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
-    if (!network) {
-        return false;
-    }
+        sample::BuildOptions buildOption;
+        buildOption.workspace = 10 * 1024;
+        buildOption.tf32 = false;
+        buildOption.fp16 = true;
+        buildOption.int8 = false;
 
-    // ------------------------
-    // Create builder config
-    // ------------------------
-    auto config = std::unique_ptr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-    if (!config) {
-        return false;
-    }
-    config->setFlag(nvinfer1::BuilderFlag::kFP16);
-    /*
-    config->setMaxWorkspaceSize(16_MiB);
-    if (mParams.fp16) {
-        config->setFlag(BuilderFlag::kFP16);
-    }
-    if (mParams.int8) {
-        config->setFlag(BuilderFlag::kINT8);
-        samplesCommon::setAllDynamicRanges(network.get(), 127.0f, 127.0f);
-    }
+        sample::SystemOptions sysOption;
 
-    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
-    */
+        // Get Engine
+        sample::BuildEnvironment env;
+        getEngineBuildEnv(modelOption, buildOption, sysOption, env, std::cout);
 
-    // -------------------
-    // Create ONNX parser
-    // -------------------
-    auto parser = std::unique_ptr<nvonnxparser::IParser>(
-        nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
-    if (!parser) {
-        return false;
-    }
+        mEngine = std::move(env.engine);
 
-    auto parsed = parser->parseFromFile(
-        mParams.onnxFilePath.c_str(),
-        static_cast<int>(nvinfer1::ILogger::Severity::kWARNING));
-    if (!parsed) {
-        return false;
-    }
-
-    // -------------
-    // Build engine
-    // -------------
-    std::unique_ptr<nvinfer1::IHostMemory> plan{
-        builder->buildSerializedNetwork(*network, *config)};
-    if (!plan) {
-        return false;
-    }
-
-    std::unique_ptr<nvinfer1::IRuntime> runtime{
-        nvinfer1::createInferRuntime(sample::gLogger.getTRTLogger())};
-    if (!runtime) {
-        return false;
-    }
-
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(plan->data(), plan->size()));
-    if (!mEngine) {
-        return false;
+        // network released after parser! parser destructor depends on network.
+        env.parser = {};
     }
 
     // -----------------------
