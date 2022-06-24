@@ -1,4 +1,4 @@
-#include "TensorRT-OSS/samples/common/sampleEngines.h"
+#include "trt-oss-src/samples/common/sampleEngines.h"
 
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
@@ -26,7 +26,7 @@ void build(const std::string &onnxFilePath) {
     sample::SystemOptions sysOption;
 
     // Build and Save Engine
-    sample::BuildEnvironment env;
+    sample::BuildEnvironment env{false, -1};
     getEngineBuildEnv(modelOption, buildOption, sysOption, env, std::cout);
 
     // network released after parser! parser destructor depends on network.

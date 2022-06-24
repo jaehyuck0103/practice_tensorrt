@@ -1,5 +1,5 @@
-#include "TensorRT-OSS/samples/common/buffers.h"
-#include "TensorRT-OSS/samples/common/sampleEngines.h"
+#include "trt-oss-src/samples/common/buffers.h"
+#include "trt-oss-src/samples/common/sampleEngines.h"
 
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>

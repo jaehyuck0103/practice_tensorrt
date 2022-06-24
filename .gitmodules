@@ -1,3 +1,0 @@
-[submodule "third_party/TensorRT-OSS"]
-	path = third_party/TensorRT-OSS
-	url = https://github.com/NVIDIA/TensorRT.git

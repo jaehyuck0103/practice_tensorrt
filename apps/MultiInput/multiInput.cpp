@@ -1,5 +1,5 @@
-#include "TensorRT-OSS/samples/common/common.h"
-#include "TensorRT-OSS/samples/common/sampleEngines.h"
+#include "trt-oss-src/samples/common/common.h"
+#include "trt-oss-src/samples/common/sampleEngines.h"
 
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
@@ -32,10 +32,10 @@ bool SampleMultiInput::build() {
         sample::SystemOptions sysOption;
 
         // Get Engine
-        sample::BuildEnvironment env;
+        sample::BuildEnvironment env{false, -1};
         getEngineBuildEnv(modelOption, buildOption, sysOption, env, std::cout);
 
-        mEngine = std::move(env.engine);
+        mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(env.engine.release());
 
         // network released after parser! parser destructor depends on network.
         env.parser = {};

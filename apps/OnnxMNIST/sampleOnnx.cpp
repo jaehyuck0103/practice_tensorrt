@@ -1,6 +1,6 @@
-#include "TensorRT-OSS/samples/common/buffers.h"
-#include "TensorRT-OSS/samples/common/common.h"
-#include "TensorRT-OSS/samples/common/sampleEngines.h"
+#include "trt-oss-src/samples/common/buffers.h"
+#include "trt-oss-src/samples/common/common.h"
+#include "trt-oss-src/samples/common/sampleEngines.h"
 
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
@@ -40,7 +40,7 @@ bool SampleOnnxMNIST::build() {
         modelOption.baseModel.format = sample::ModelFormat::kONNX;
 
         sample::BuildOptions buildOption;
-        buildOption.workspace = 10 * 1024;
+        // buildOption.workspace = 10 * 1024;
         buildOption.tf32 = false;
         buildOption.fp16 = true;
         buildOption.int8 = false;
@@ -48,13 +48,14 @@ bool SampleOnnxMNIST::build() {
         sample::SystemOptions sysOption;
 
         // Get Engine
-        sample::BuildEnvironment env;
+        sample::BuildEnvironment env(false, -1);
         getEngineBuildEnv(modelOption, buildOption, sysOption, env, std::cout);
 
-        mEngine = std::move(env.engine);
+        mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(env.engine.release());
 
         // network released after parser! parser destructor depends on network.
-        env.parser = {};
+        // 이제 괜찮은가?
+        // env.parser = {};
     }
 
     // -----------------------
@@ -105,7 +106,13 @@ void SampleOnnxMNIST::infer() {
     // -------------
     // Print Result
     // -------------
-    mBufManager->dumpBuffer(std::cout, mParams.outputTensorName);
+    std::cout << "\n\n\n";
+    mBufManager->print<float>(
+        std::cout,
+        mBufManager->getHostBuffer(mParams.outputTensorName),
+        mBufManager->size(mParams.outputTensorName),
+        30);
+    std::cout << "\n\n\n";
 }
 
 int main() {
